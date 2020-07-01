@@ -1,0 +1,7 @@
+scipy==1.0.0
+tensorflow==1.10.0
+pylint==1.8.2
+numpy==1.14.1
+h5py==2.9.0
+gdal==2.2.3
+rasterio==1.1.5
