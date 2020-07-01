@@ -1,0 +1,11 @@
+{
+    "model_name": "ResNet152",
+    "batch_size":256,
+    "nb_epoch":100,
+    "learning_rate":1e-3,
+    "save_checkpoint_per_iteration": 300,
+    "save_checkpoint_after_iteration": 3000,
+    "out_dir": "model_weights/original_labels/ResNet152",
+    "model_file": "model_weights/original_labels/ResNet152/ResNet152_BigEarthNet_original_labels",
+    "label_type": "original"
+}

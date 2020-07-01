@@ -1,0 +1,18 @@
+{
+    "model_name": "ResNet50",
+    "batch_size":1000,
+    "nb_epoch":100,
+    "learning_rate":1e-3,
+    "save_checkpoint_after_iteration": 0,
+    "save_checkpoint_per_iteration": 1,
+    "tr_tf_record_files": ["TFRecord_files/train.tfrecord"], 
+    "val_tf_record_files": ["TFRecord_files/val.tfrecord"], 
+    "test_tf_record_files": ["TFRecord_files/test.tfrecord"],  
+    "label_type": "original", 
+    "fine_tune": false,
+    "model_file": "model_weights/original_labels/ResNet50/ResNet50_BigEarthNet_original_labels",
+    "shuffle_buffer_size": 130000,
+    "training_size": 269695,
+    "test_size": 125866
+}
+
