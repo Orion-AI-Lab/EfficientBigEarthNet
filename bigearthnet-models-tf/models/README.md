@@ -1,0 +1,1 @@
+This folder contains the implementation of several models of well-known architectures. Please note that to use the ResNet and VGG models, you need to download the corresponding folder of the TensorFlow-Slim image classification model library.
