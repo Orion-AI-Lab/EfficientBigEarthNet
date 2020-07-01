@@ -8,7 +8,7 @@ band_names = ['B01', 'B02', 'B03', 'B04', 'B05',
               'B06', 'B07', 'B08', 'B8A', 'B09', 'B11', 'B12']
 
 def prep_example(bands, BigEarthNet_19_labels, BigEarthNet_19_labels_multi_hot, patch_name):
-    print('Length of BigEarthNet_19_labels_multi_hot in prep_example function is: ',np.shape(BigEarthNet_19_labels_multi_hot))
+    #print('Length of BigEarthNet_19_labels_multi_hot in prep_example function is: ',np.shape(BigEarthNet_19_labels_multi_hot))
     return tf.train.Example(
             features=tf.train.Features(
                 feature={
@@ -52,6 +52,7 @@ def create_split(root_folder, patch_names, TFRecord_writer, label_indices, GDAL_
         import gdal
     elif RASTERIO_EXISTED:
         import rasterio
+    print ('Total patches in split: {}'.format(len(patch_names)))
     progress_bar = tf.contrib.keras.utils.Progbar(target = len(patch_names))
     for patch_idx, patch_name in enumerate(patch_names):
         patch_folder_path = os.path.join(root_folder, patch_name)
@@ -75,6 +76,7 @@ def create_split(root_folder, patch_names, TFRecord_writer, label_indices, GDAL_
         BigEarthNet_19_labels_multi_hot = np.zeros(len(label_conversion),dtype=int)
         patch_json_path = os.path.join(
             patch_folder_path, patch_name + '_labels_metadata.json')
+        #print('patch_json_path: {}'.format(patch_json_path))
 
         with open(patch_json_path, 'rb') as f:
             patch_json = json.load(f)
@@ -97,10 +99,11 @@ def create_split(root_folder, patch_names, TFRecord_writer, label_indices, GDAL_
             with open(patch_json_path, 'wb') as f:
                 json.dump(patch_json, f)
         
-        print('BigEarthNet_19_labels is: ' ,BigEarthNet_19_labels)
-        print('BigEarthNet_19_labels_multi_hot is: ', BigEarthNet_19_labels_multi_hot)
+        #print('BigEarthNet_19_labels is: ' ,BigEarthNet_19_labels)
+        #print('BigEarthNet_19_labels_multi_hot is: ', BigEarthNet_19_labels_multi_hot)
         
-        print('Shape of multi_hot vector is: ', np.shape(BigEarthNet_19_labels_multi_hot))
+        #print('Shape of multi_hot vector is: ', np.shape(BigEarthNet_19_labels_multi_hot))
+
 #        example = prep_example(
 #            bands, 
 #            original_labels,
@@ -132,7 +135,7 @@ def prep_tf_record_files(root_folder, out_folder, split_names, patch_names_list,
         exit()
 
     for split_idx in range(len(patch_names_list)):
-        print('INFO: creating the split of', split_names[split_idx], 'is started')
+        print('INFO: creating tfrecords for split: ', split_names[split_idx])
         create_split(
             root_folder, 
             patch_names_list[split_idx], 
