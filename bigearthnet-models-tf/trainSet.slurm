@@ -13,9 +13,10 @@
 #SBATCH --ntasks=1     # Number of tasks(processes)
 #SBATCH --nodes=1     # Number of nodes requested
 #SBATCH --ntasks-per-node=1     # Tasks per node
-#SBATCH --cpus-per-task=20     # Threads per task
+#SBATCH --cpus-per-task=10     # Threads per task
+#SBATCH --gres=gpu:1 # GPUs per node -- must be equal to ntasks per node in case of data parallelism. Change for model parallelism
 #SBATCH --time=48:00:00   # walltime
-#SBATCH --mem=56G   # memory per NODE
+#SBATCH --mem=16G   # memory per NODE
 #SBATCH --partition=gpu    # Partition
 #SBATCH --account=pa200403    # Replace with your system project
 
