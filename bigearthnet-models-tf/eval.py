@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
 # This script can be used to evaluate the performance of a deep learning model, pre-trained on the BigEarthNet.
@@ -20,12 +21,14 @@ from utils import get_metrics
 import json
 import importlib
 
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+#os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '0'
+
 
 def eval_model(args):
     with tf.Session() as sess:
         print('test_tf_record_files is:',args['test_tf_record_files'])
-        print('labal_type is:  ', args['label_type'])
+        print('label_type is:  ', args['label_type'])
         iterator = BigEarthNet(
             args['test_tf_record_files'], 
             args['batch_size'], 

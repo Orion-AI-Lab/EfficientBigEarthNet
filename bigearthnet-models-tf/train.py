@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
 # This script can be used to train any deep learning model on the BigEarthNet. 
@@ -30,10 +31,29 @@ from utils import get_metrics
 import json
 import importlib
 
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '0'
+#os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+
+
+def gpu_config():
+    # GPU configuration
+    config = tf.ConfigProto(allow_soft_placement=True)
+    #config = tf.ConfigProto(log_device_placement=True)
+
+    # 'Best-fit with coalescing' algorithm for memory allocation
+    config.gpu_options.allocator_type = 'BFC'
+    config.gpu_options.allow_growth = True
+
+    # Assume data parallelism
+    # Pin GPU to be used to process local rank (one GPU per process)
+    # config.gpu_options.visible_device_list = str(hvd.local_rank())
+
+    return config
+
 
 def run_model(args):
-    with tf.Session() as sess:
+    with tf.Session(config=gpu_config()) as sess:
+        print('Creating data iterator')
         iterator = BigEarthNet(
             args['tr_tf_record_files'], 
             args['batch_size'], 
@@ -44,10 +64,12 @@ def run_model(args):
         nb_iteration = int(np.ceil(float(args['training_size'] * args['nb_epoch']) / args['batch_size']))
         iterator_ins = iterator.get_next()
 
+        print('Creating model: {}'.format(args['model_name']))
         model = importlib.import_module('models.' + args['model_name']).DNN_model(args['label_type'])
         model.create_network()
         loss = model.define_loss()
 
+        print('Creating optimizer and update ops')
         update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
         with tf.control_dependencies(update_ops):
             train_op = tf.train.AdamOptimizer(learning_rate=args['learning_rate']).minimize(loss)
@@ -84,6 +106,7 @@ def run_model(args):
         model_saver.save(sess, os.path.join(args['out_dir'], 'models', 'iteration'), iteration_idx)
 
 if __name__ == "__main__":
+
     parser = argparse.ArgumentParser(description= 'Training script')
     parser.add_argument('configs', help= 'json config file')
     parser_args = parser.parse_args()
