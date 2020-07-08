@@ -84,7 +84,7 @@ def parse_function(example_proto, label_type):
     }
 
 
-def input_fn(TFRecord_paths, batch_size, nb_epoch, shuffle_buffer_size, label_type):
+def create_batched_dataset(TFRecord_paths, batch_size, nb_epoch, shuffle_buffer_size, label_type):
     dataset = tf.data.TFRecordDataset(TFRecord_paths)
     if shuffle_buffer_size > 0:
         dataset = dataset.shuffle(buffer_size=shuffle_buffer_size)
@@ -97,5 +97,5 @@ def input_fn(TFRecord_paths, batch_size, nb_epoch, shuffle_buffer_size, label_ty
 
     dataset = dataset.batch(batch_size, drop_remainder=False)
     batched_dataset = dataset.prefetch(10)
-    return iter(batched_dataset)
+    return batched_dataset
 
