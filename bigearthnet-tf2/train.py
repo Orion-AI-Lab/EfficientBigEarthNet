@@ -39,13 +39,16 @@ def run_model(args):
     bigearth_model = BigEarthModel(label_type=args["label_type"])
     model = bigearth_model.model
 
-    # DEBUG
-    # single_batch = next(iter(batched_dataset))
-    # x = single_batch["B01"]
-    # y = single_batch[args["label_type"] + "_labels_multi_hot"]
-    # y_ = model(x, training=True)
-    # print(y)
-    # print(y_)
+    # DEBUG (use this to understand what the iterators are returning)
+    debug = False
+    if debug: 
+        single_batch = next(iter(batched_dataset))
+        x = single_batch["B01"]
+        y = single_batch[args["label_type"] + "_labels_multi_hot"]
+        y_ = model(x, training=True)
+        print(x)
+        print(y)
+        print(y_)
 
     # Create loss
     loss_object = tf.keras.losses.CategoricalCrossentropy()
