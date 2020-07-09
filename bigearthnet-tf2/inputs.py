@@ -117,7 +117,7 @@ def _preprocess_function(example, label_type):
 
 
 def create_batched_dataset(
-    TFRecord_paths, batch_size, nb_epoch, shuffle_buffer_size, label_type, num_parallel_calls=4
+    TFRecord_paths, batch_size, shuffle_buffer_size, label_type, num_parallel_calls=4
 ):
     """Create an input batched dataset.
     """
@@ -127,7 +127,6 @@ def create_batched_dataset(
     dataset = tf.data.TFRecordDataset(TFRecord_paths)
     if shuffle_buffer_size > 0:
         dataset = dataset.shuffle(buffer_size=shuffle_buffer_size)
-    dataset = dataset.repeat(nb_epoch)
     dataset = dataset.map(parse_fn, num_parallel_calls=num_parallel_calls)
     dataset = dataset.map(preprocess_fn, num_parallel_calls=num_parallel_calls)
 

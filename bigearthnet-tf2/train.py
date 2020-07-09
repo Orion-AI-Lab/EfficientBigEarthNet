@@ -22,6 +22,9 @@ def run_model(args):
     print("Eager execution: {}".format(tf.executing_eagerly()))
     print("Running using random seed: {}".format(SEED))
 
+    print("Batch size: {}".format(args["batch_size"]))
+    print("Epochs: {}".format(args["nb_epoch"]))
+
     rn.seed(SEED)
     np.random.seed(SEED)
     tf.random.set_seed(SEED)
@@ -30,14 +33,13 @@ def run_model(args):
     batched_dataset = create_batched_dataset(
         args["tr_tf_record_files"],
         args["batch_size"],
-        args["nb_epoch"],
         args["shuffle_buffer_size"],
         args["label_type"],
     )
 
     # Create our model
-    #bigearth_model = BigEarthModel(label_type=args["label_type"])
-    bigearth_model = ResNet50BigEarthModel(label_type=args["label_type"])
+    bigearth_model = BigEarthModel(label_type=args["label_type"])
+    #bigearth_model = ResNet50BigEarthModel(label_type=args["label_type"])
     model = bigearth_model.model
 
     # DEBUG (use this to understand what the iterators are returning)
@@ -96,9 +98,13 @@ def run_model(args):
         epoch_precision = tf.keras.metrics.Precision()
         epoch_recall = tf.keras.metrics.Recall()
 
+        nb_iterations = args["training_size"] / args["batch_size"]
+        if args["training_size"] % args["batch_size"] != 0:
+            nb_iterations += 1
+        progress_bar = tf.keras.utils.Progbar(target=nb_iterations)
         batch_iterator = iter(batched_dataset)
 
-        for single_batch in batch_iterator:
+        for i, single_batch in enumerate(batch_iterator):
             x_all = [
                 single_batch["B01"],
                 single_batch["B02"],
@@ -126,6 +132,8 @@ def run_model(args):
             epoch_accuracy.update_state(y, y_)
             epoch_precision.update_state(y, y_)
             epoch_recall.update_state(y, y_)
+
+            progress_bar.update(i+1)
 
         # End epoch
         train_loss_results.append(epoch_loss_avg.result())
