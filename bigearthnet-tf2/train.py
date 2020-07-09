@@ -43,10 +43,12 @@ def run_model(args):
     debug = False
     if debug: 
         single_batch = next(iter(batched_dataset))
-        x = single_batch["B01"]
+        x01 = single_batch["B01"]
+        x09 = single_batch["B09"]
         y = single_batch[args["label_type"] + "_labels_multi_hot"]
-        y_ = model(x, training=True)
-        print(x)
+        y_ = model([x01, x09], training=True)
+        print(x01)
+        print(x09)
         print(y)
         print(y_)
 
@@ -85,17 +87,17 @@ def run_model(args):
         batch_iterator = iter(batched_dataset)
 
         for single_batch in batch_iterator:
-            x = single_batch["B01"]
+            x01, x09 = single_batch["B01"], single_batch["B09"]
             y = single_batch[args["label_type"] + "_labels_multi_hot"]
 
             # Optimize the model
-            loss_value, grads = grad(model, x, y)
+            loss_value, grads = grad(model, [x01, x09], y)
             optimizer.apply_gradients(zip(grads, model.trainable_variables))
 
             # Track progress
             epoch_loss_avg.update_state(loss_value)  # Add current batch loss
             # Compare predicted label to actual label
-            y_ = model(x, training=True)
+            y_ = model([x01, x09], training=True)
             epoch_accuracy.update_state(y, y_)
             epoch_precision.update_state(y, y_)
             epoch_recall.update_state(y, y_)

@@ -25,16 +25,20 @@ class BigEarthModel:
         # self.prediction_threshold = 0.5
 
         self._inputB01 = Input(shape=(20, 20,), dtype=tf.float32)
+        self._inputB09 = Input(shape=(20, 20,), dtype=tf.float32)
+        bands_20 = tf.keras.backend.stack([self._inputB01, self._inputB09], axis=3)
+        print(bands_20.shape)
+
         # TODO: concat, stack and combine all inputs
         # TODO: then create some nice model
-        x = Flatten()(self._inputB01)
+        x = Flatten()(bands_20)
         x = Dense(64)(x)
         x = Dense(19)(x)
 
         self._logits = x
         self._output = Activation("sigmoid")(x)
-        self._model = Model(inputs=self._inputB01, outputs=self._output)
-        self._logits_model = Model(inputs=self._inputB01, outputs=self._logits)
+        self._model = Model(inputs=[self._inputB01, self._inputB09], outputs=self._output)
+        self._logits_model = Model(inputs=[self._inputB01, self._inputB09], outputs=self._logits)
 
     @property
     def model(self):
