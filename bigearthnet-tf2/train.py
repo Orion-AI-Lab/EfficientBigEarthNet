@@ -12,7 +12,7 @@ import sys
 import json
 
 from inputs import create_batched_dataset
-from model import BigEarthModel
+from model import BigEarthModel, ResNet50BigEarthModel
 
 SEED = 42
 
@@ -36,19 +36,31 @@ def run_model(args):
     )
 
     # Create our model
-    bigearth_model = BigEarthModel(label_type=args["label_type"])
+    #bigearth_model = BigEarthModel(label_type=args["label_type"])
+    bigearth_model = ResNet50BigEarthModel(label_type=args["label_type"])
     model = bigearth_model.model
 
     # DEBUG (use this to understand what the iterators are returning)
     debug = False
-    if debug: 
+    if debug:
         single_batch = next(iter(batched_dataset))
-        x01 = single_batch["B01"]
-        x09 = single_batch["B09"]
+        x_all = [
+            single_batch["B01"],
+            single_batch["B02"],
+            single_batch["B03"],
+            single_batch["B04"],
+            single_batch["B05"],
+            single_batch["B06"],
+            single_batch["B07"],
+            single_batch["B08"],
+            single_batch["B8A"],
+            single_batch["B09"],
+            single_batch["B11"],
+            single_batch["B12"],
+        ]
         y = single_batch[args["label_type"] + "_labels_multi_hot"]
-        y_ = model([x01, x09], training=True)
-        print(x01)
-        print(x09)
+        y_ = model(x_all, training=True)
+        print(x_all)
         print(y)
         print(y_)
 
@@ -87,17 +99,30 @@ def run_model(args):
         batch_iterator = iter(batched_dataset)
 
         for single_batch in batch_iterator:
-            x01, x09 = single_batch["B01"], single_batch["B09"]
+            x_all = [
+                single_batch["B01"],
+                single_batch["B02"],
+                single_batch["B03"],
+                single_batch["B04"],
+                single_batch["B05"],
+                single_batch["B06"],
+                single_batch["B07"],
+                single_batch["B08"],
+                single_batch["B8A"],
+                single_batch["B09"],
+                single_batch["B11"],
+                single_batch["B12"],
+            ]
             y = single_batch[args["label_type"] + "_labels_multi_hot"]
 
             # Optimize the model
-            loss_value, grads = grad(model, [x01, x09], y)
+            loss_value, grads = grad(model, x_all, y)
             optimizer.apply_gradients(zip(grads, model.trainable_variables))
 
             # Track progress
             epoch_loss_avg.update_state(loss_value)  # Add current batch loss
             # Compare predicted label to actual label
-            y_ = model([x01, x09], training=True)
+            y_ = model(x_all, training=True)
             epoch_accuracy.update_state(y, y_)
             epoch_precision.update_state(y, y_)
             epoch_recall.update_state(y, y_)

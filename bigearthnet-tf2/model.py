@@ -10,35 +10,86 @@
 import numpy as np
 import tensorflow as tf
 
-from tensorflow.keras.layers import Input, Dense, Flatten, Activation
+from tensorflow.keras.layers import Input, Dense, Flatten, Activation, Conv2D
 from tensorflow.keras.models import Model
-
-# from tensorflow.keras.applications import ResNet50
+from tensorflow.keras.applications import ResNet50
 
 from inputs import BAND_STATS
+
+
+MODELS_CLASS = {
+    "ResNet50": "ResNet50BigEarthModel",
+}
 
 
 class BigEarthModel:
     def __init__(self, label_type):
         self.label_type = label_type
-        self.nb_class = 19 if label_type == "BigEarthNet-19" else 43
+        self._nb_class = 19 if label_type == "BigEarthNet-19" else 43
         # self.prediction_threshold = 0.5
+
+        self._inputB04 = Input(shape=(120, 120,), dtype=tf.float32)
+        self._inputB03 = Input(shape=(120, 120,), dtype=tf.float32)
+        self._inputB02 = Input(shape=(120, 120,), dtype=tf.float32)
+        self._inputB08 = Input(shape=(120, 120,), dtype=tf.float32)
+        bands_10m = tf.keras.backend.stack(
+            [self._inputB04, self._inputB03, self._inputB02, self._inputB08], axis=3
+        )
+        print("10m shape: {}".format(bands_10m.shape))
+
+        self._inputB05 = Input(shape=(60, 60,), dtype=tf.float32)
+        self._inputB06 = Input(shape=(60, 60,), dtype=tf.float32)
+        self._inputB07 = Input(shape=(60, 60,), dtype=tf.float32)
+        self._inputB8A = Input(shape=(60, 60,), dtype=tf.float32)
+        self._inputB11 = Input(shape=(60, 60,), dtype=tf.float32)
+        self._inputB12 = Input(shape=(60, 60,), dtype=tf.float32)
+        bands_20m = tf.stack(
+            [
+                self._inputB05,
+                self._inputB06,
+                self._inputB07,
+                self._inputB8A,
+                self._inputB11,
+                self._inputB12,
+            ],
+            axis=3,
+        )
+        bands_20m = tf.image.resize(
+            bands_20m, [120, 120], method=tf.image.ResizeMethod.BICUBIC
+        )
+        print("20m shape: {}".format(bands_20m.shape))
 
         self._inputB01 = Input(shape=(20, 20,), dtype=tf.float32)
         self._inputB09 = Input(shape=(20, 20,), dtype=tf.float32)
-        bands_20 = tf.keras.backend.stack([self._inputB01, self._inputB09], axis=3)
-        print(bands_20.shape)
+        bands_60m = tf.keras.backend.stack([self._inputB01, self._inputB09], axis=3)
+        bands_60m = tf.image.resize(
+            bands_60m, [120, 120], method=tf.image.ResizeMethod.BICUBIC
+        )
+        print("60m shape: {}".format(bands_60m.shape))
 
-        # TODO: concat, stack and combine all inputs
-        # TODO: then create some nice model
-        x = Flatten()(bands_20)
-        x = Dense(64)(x)
-        x = Dense(19)(x)
+        allbands = tf.concat([bands_10m, bands_20m, bands_60m], axis=3)
+        print("allbands shape: {}".format(allbands.shape))
 
-        self._logits = x
-        self._output = Activation("sigmoid")(x)
-        self._model = Model(inputs=[self._inputB01, self._inputB09], outputs=self._output)
-        self._logits_model = Model(inputs=[self._inputB01, self._inputB09], outputs=self._logits)
+        inputs = [
+            self._inputB01,
+            self._inputB02,
+            self._inputB03,
+            self._inputB04,
+            self._inputB05,
+            self._inputB06,
+            self._inputB07,
+            self._inputB08,
+            self._inputB8A,
+            self._inputB09,
+            self._inputB11,
+            self._inputB12,
+        ]
+
+        # create model
+        self._logits = self._create_model_logits(allbands)
+        self._output = Activation("sigmoid")(self._logits)
+        self._model = Model(inputs=inputs, outputs=self._output)
+        self._logits_model = Model(inputs=inputs, outputs=self._logits)
 
     @property
     def model(self):
@@ -48,47 +99,37 @@ class BigEarthModel:
     def logits_model(self):
         return self._logits_model
 
+    def _create_model_logits(self, allbands):
+        x = Flatten()(allbands)
+        x = Dense(64)(x)
+        x = Dense(self._nb_class)(x)
+        return x
 
-class OldModel:
+
+class ResNet50BigEarthModel(BigEarthModel):
     def __init__(self, label_type):
-        self.label_type = label_type
-        self.prediction_threshold = 0.5
-        self.is_training = tf.placeholder(tf.bool, [])
-        self.nb_class = 19 if label_type == "BigEarthNet-19" else 43
+        super().__init__(label_type)
 
-        self.B04 = tf.placeholder(tf.float32, [None, 120, 120], name="B04")
-        self.B03 = tf.placeholder(tf.float32, [None, 120, 120], name="B03")
-        self.B02 = tf.placeholder(tf.float32, [None, 120, 120], name="B02")
-        self.B08 = tf.placeholder(tf.float32, [None, 120, 120], name="B08")
-        self.bands_10m = tf.stack([self.B04, self.B03, self.B02, self.B08], axis=3)
+    def _create_model_logits(self, allbands):
 
-        self.B05 = tf.placeholder(tf.float32, [None, 60, 60], name="B05")
-        self.B06 = tf.placeholder(tf.float32, [None, 60, 60], name="B06")
-        self.B07 = tf.placeholder(tf.float32, [None, 60, 60], name="B07")
-        self.B8A = tf.placeholder(tf.float32, [None, 60, 60], name="B8A")
-        self.B11 = tf.placeholder(tf.float32, [None, 60, 60], name="B11")
-        self.B12 = tf.placeholder(tf.float32, [None, 60, 60], name="B12")
-        self.bands_20m = tf.stack(
-            [self.B05, self.B06, self.B07, self.B8A, self.B11, self.B12], axis=3
-        )
+        # Use a 1x1 convolution to drop the channels from 12 to 3
+        x = Conv2D(
+            filters=3,
+            kernel_size=(1, 1),
+            data_format="channels_last",
+            input_shape=(120, 120, 12),
+        )(allbands)
 
-        self.B01 = tf.placeholder(tf.float32, [None, 20, 20], name="B01")
-        self.B09 = tf.placeholder(tf.float32, [None, 20, 20], name="B09")
-        self.bands_60m = tf.stack([self.B01, self.B09], axis=3)
+        # Add ResNet50 with additional dense layer as the end
+        x = ResNet50(
+            include_top=True,
+            weights=None,
+            input_shape=(120, 120, 3),
+            pooling=max,
+            classes=self._nb_class,
+        )(x)
 
-        self.img = tf.concat(
-            [self.bands_10m, tf.image.resize_bicubic(self.bands_20m, [120, 120])],
-            axis=3,
-        )
-        self.multi_hot_label = tf.placeholder(tf.float32, shape=(None, self.nb_class))
-        self.model_path = tf.placeholder(tf.string)
-
-    def define_loss(self):
-        self.loss = tf.losses.sigmoid_cross_entropy(
-            multi_class_labels=self.multi_hot_label, logits=self.logits
-        )
-        tf.summary.scalar("sigmoid_cross_entropy_loss", self.loss)
-        return self.loss
+        return x
 
 
 #    def create_network(self):
