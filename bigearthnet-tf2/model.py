@@ -10,7 +10,7 @@
 import numpy as np
 import tensorflow as tf
 
-from tensorflow.keras.layers import Input, Dense, Flatten, Softmax
+from tensorflow.keras.layers import Input, Dense, Flatten, Activation
 from tensorflow.keras.models import Model
 
 #from tensorflow.keras.applications import ResNet50 
@@ -23,21 +23,28 @@ from inputs import BAND_STATS
 class BigEarthModel:
     def __init__(self, label_type):
         self.label_type = label_type
+        self.nb_class = 19 if label_type == "BigEarthNet-19" else 43
         self.prediction_threshold = 0.5
 
         self._inputB01 = Input(shape=(20, 20,), dtype=tf.float32)
         # TODO: concat, stack and combine all inputs
         # TODO: then create some nice model
-
         x = Flatten()(self._inputB01)
-        x = Dense(19, activation="relu")(x)
-        self._output = Softmax()(x)
+        x = Dense(64)(x)
+        x = Dense(19)(x)
+
+        self._logits = x        
+        self._output = Activation("sigmoid")(x)
         self._model = Model(inputs=self._inputB01, outputs=self._output)
+        self._logits_model = Model(inputs=self._inputB01, outputs=self._logits)
 
     @property
     def model(self): 
         return self._model
 
+    @property
+    def logits_model(self): 
+        return self._logits_model
 
 
 class OldModel:

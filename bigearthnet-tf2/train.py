@@ -8,6 +8,7 @@ import random as rn
 import numpy as np
 import argparse
 import os
+import sys
 import json
 
 from inputs import create_batched_dataset
@@ -35,10 +36,19 @@ def run_model(args):
     )
 
     # Create our model
-    model = BigEarthModel(label_type=args["label_type"]).model
+    bigearth_model = BigEarthModel(label_type=args["label_type"])
+    model = bigearth_model.model
+
+    # DEBUG
+    # single_batch = next(iter(batched_dataset))
+    # x = single_batch["B01"]
+    # y = single_batch[args["label_type"] + "_labels_multi_hot"]
+    # y_ = model(x, training=True)
+    # print(y)
+    # print(y_)
 
     # Create loss
-    loss_object = tf.keras.losses.CategoricalCrossentropy(from_logits=True)
+    loss_object = tf.keras.losses.CategoricalCrossentropy()
 
     def loss(model, x, y, training):
         y_ = model(x, training=training)
@@ -51,18 +61,23 @@ def run_model(args):
         return loss_value, tape.gradient(loss_value, model.trainable_variables)
 
     # Setup optimizer
-    optimizer = tf.keras.optimizers.SGD(learning_rate=0.01)
+    optimizer = tf.keras.optimizers.Adam(learning_rate=0.01)
 
     # Keep results for plotting
     train_loss_results = []
     train_accuracy_results = []
+    train_precision_results = []
+    train_recall_results = []
 
+    # The main loop
     batch_size = args["batch_size"]
     for epoch in range(args["nb_epoch"]):
         print("Starting epoch {}".format(epoch))
 
         epoch_loss_avg = tf.keras.metrics.Mean()
         epoch_accuracy = tf.keras.metrics.CategoricalAccuracy()
+        epoch_precision = tf.keras.metrics.Precision()
+        epoch_recall = tf.keras.metrics.Recall()
 
         batch_iterator = iter(batched_dataset)
 
@@ -77,18 +92,27 @@ def run_model(args):
             # Track progress
             epoch_loss_avg.update_state(loss_value)  # Add current batch loss
             # Compare predicted label to actual label
-            epoch_accuracy.update_state(y, model(x, training=True))
+            y_ = model(x, training=True)
+            epoch_accuracy.update_state(y, y_)
+            epoch_precision.update_state(y, y_)
+            epoch_recall.update_state(y, y_)
 
         # End epoch
         train_loss_results.append(epoch_loss_avg.result())
         train_accuracy_results.append(epoch_accuracy.result())
+        train_precision_results.append(epoch_precision.result())
+        train_recall_results.append(epoch_recall.result())
 
-        if epoch % 5 == 0:
-            print(
-                "Epoch {:03d}: Loss: {:.3f}, Accuracy: {:.3%}".format(
-                    epoch, epoch_loss_avg.result(), epoch_accuracy.result()
-                )
+        # if epoch % 5 == 0:
+        print(
+            "Epoch {:03d}: Loss: {:.3f}, Accuracy: {:.3%}, Precision: {:.3%}, Recall: {:.3%}".format(
+                epoch,
+                epoch_loss_avg.result(),
+                epoch_accuracy.result(),
+                epoch_precision.result(),
+                epoch_recall.result(),
             )
+        )
 
 
 if __name__ == "__main__":
