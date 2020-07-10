@@ -1,18 +1,19 @@
 # -*- coding: utf-8 -*-
 #
-# Main model to define initial placeholders, feed dictionary, and image normalization.
+# The models
 #
-# Author: Gencer Sumbul, http://www.user.tu-berlin.de/gencersumbul/
-# Email: gencer.suembuel@tu-berlin.de
-# Date: 23 Dec 2019
-# Version: 1.0.1
 
 import numpy as np
 import tensorflow as tf
 
-from tensorflow.keras.layers import Input, Dense, Flatten, Activation, Conv2D
+from tensorflow.keras.layers import Input, Dense, Flatten, Activation, Lambda, Conv2D
+from tensorflow.keras.layers import Layer
 from tensorflow.keras.models import Model
+from tensorflow.keras import backend as K
+
 from tensorflow.keras.applications import ResNet50
+
+from tensorflow.python.ops import nn
 
 from inputs import BAND_STATS
 
@@ -23,10 +24,8 @@ MODELS_CLASS = {
 
 
 class BigEarthModel:
-    def __init__(self, label_type):
-        self.label_type = label_type
-        self._nb_class = 19 if label_type == "BigEarthNet-19" else 43
-        # self.prediction_threshold = 0.5
+    def __init__(self, nb_class):
+        self._nb_class = nb_class
 
         self._inputB04 = Input(shape=(120, 120,), dtype=tf.float32)
         self._inputB03 = Input(shape=(120, 120,), dtype=tf.float32)
@@ -85,9 +84,15 @@ class BigEarthModel:
             self._inputB12,
         ]
 
-        # create model
+        # create internal model 
         self._logits = self._create_model_logits(allbands)
-        self._output = Activation("sigmoid")(self._logits)
+
+        # Add one last dense layer with biases and sigmoid activation
+        # This is like having nb_class separate binary classifiers
+        self._output = Dense(units=self._nb_class, activation='sigmoid', use_bias=True)(
+            self._logits
+        )
+
         self._model = Model(inputs=inputs, outputs=self._output)
         self._logits_model = Model(inputs=inputs, outputs=self._logits)
 
@@ -101,14 +106,14 @@ class BigEarthModel:
 
     def _create_model_logits(self, allbands):
         x = Flatten()(allbands)
+        x = Dense(128)(x)
         x = Dense(64)(x)
-        x = Dense(self._nb_class)(x)
         return x
 
 
 class ResNet50BigEarthModel(BigEarthModel):
-    def __init__(self, label_type):
-        super().__init__(label_type)
+    def __init__(self, nb_class):
+        super().__init__(nb_class)
 
     def _create_model_logits(self, allbands):
 
@@ -126,21 +131,6 @@ class ResNet50BigEarthModel(BigEarthModel):
             weights=None,
             input_shape=(120, 120, 3),
             pooling=max,
-            classes=self._nb_class,
         )(x)
 
         return x
-
-
-#    def create_network(self):
-#        with tf.contrib.slim.arg_scope(resnet_arg_scope()):
-#            logits, end_points = resnet_v1_50(
-#                self.img,
-#                num_classes = self.nb_class,
-#                is_training = self.is_training,
-#                global_pool=True,
-#                spatial_squeeze=True
-#            )
-#        self.logits = logits
-#        self.probabilities = tf.nn.sigmoid(self.logits)
-#        self.predictions = tf.cast(self.probabilities >= self.prediction_threshold, tf.float32)

@@ -38,12 +38,13 @@ def run_model(args):
     )
 
     # Create our model
-    bigearth_model = BigEarthModel(label_type=args["label_type"])
-    #bigearth_model = ResNet50BigEarthModel(label_type=args["label_type"])
+    nb_class = 19 if args["label_type"] == 'BigEarthNet-19' else 43
+    bigearth_model = BigEarthModel(nb_class=nb_class)
+    #bigearth_model = ResNet50BigEarthModel(nb_class=nb_class)
     model = bigearth_model.model
 
     # DEBUG (use this to understand what the iterators are returning)
-    debug = False
+    debug = True
     if debug:
         single_batch = next(iter(batched_dataset))
         x_all = [
@@ -62,12 +63,12 @@ def run_model(args):
         ]
         y = single_batch[args["label_type"] + "_labels_multi_hot"]
         y_ = model(x_all, training=True)
-        print(x_all)
+        #print(x_all)
         print(y)
         print(y_)
 
     # Create loss
-    loss_object = tf.keras.losses.CategoricalCrossentropy()
+    loss_object = tf.keras.losses.BinaryCrossentropy()
 
     def loss(model, x, y, training):
         y_ = model(x, training=training)
@@ -80,7 +81,7 @@ def run_model(args):
         return loss_value, tape.gradient(loss_value, model.trainable_variables)
 
     # Setup optimizer
-    optimizer = tf.keras.optimizers.Adam(learning_rate=0.01)
+    optimizer = tf.keras.optimizers.Adam(learning_rate=args["learning_rate"])
 
     # Keep results for plotting
     train_loss_results = []
@@ -94,6 +95,9 @@ def run_model(args):
         print("Starting epoch {}".format(epoch))
 
         epoch_loss_avg = tf.keras.metrics.Mean()
+
+        # TODO: Fix the metrics. We are essentially doing 19 different
+        #       binary classifications. 
         epoch_accuracy = tf.keras.metrics.CategoricalAccuracy()
         epoch_precision = tf.keras.metrics.Precision()
         epoch_recall = tf.keras.metrics.Recall()
@@ -166,4 +170,5 @@ if __name__ == "__main__":
         args.update(model_args)
 
     run_model(args)
+    
 
