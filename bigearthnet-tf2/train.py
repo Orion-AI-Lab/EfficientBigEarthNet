@@ -19,6 +19,38 @@ import models
 SEED = 42
 
 
+def evaluate_model(model, batched_dataset, nb_class):
+    """Evaluate model using the eval dataset
+    """
+    print('Running model on validation dataset')
+    custom_metrics = CustomMetrics(nb_class=nb_class)
+
+    for i, single_batch in enumerate(iter(batched_dataset)):
+        x_all = [
+            single_batch["B01"],
+            single_batch["B02"],
+            single_batch["B03"],
+            single_batch["B04"],
+            single_batch["B05"],
+            single_batch["B06"],
+            single_batch["B07"],
+            single_batch["B08"],
+            single_batch["B8A"],
+            single_batch["B09"],
+            single_batch["B11"],
+            single_batch["B12"],
+        ]
+        y = single_batch[args["label_type"] + "_labels_multi_hot"]
+
+        # Compare predicted label to actual label
+        y_ = model(x_all, training=False)
+        # Update all custom metrics
+        custom_metrics.update_state(y, y_)
+
+    return custom_metrics.result()
+
+
+
 def run_model(args):
     print("TensorFlow version: {}".format(tf.__version__))
     print("Eager execution: {}".format(tf.executing_eagerly()))
@@ -36,8 +68,15 @@ def run_model(args):
     tf.random.set_seed(SEED)
 
     # Create our data pipeline
-    batched_dataset = create_batched_dataset(
+    train_batched_dataset = create_batched_dataset(
         args["tr_tf_record_files"],
+        args["batch_size"],
+        args["shuffle_buffer_size"],
+        args["label_type"],
+    )
+
+    val_batched_dataset = create_batched_dataset(
+        args["val_tf_record_files"],
         args["batch_size"],
         args["shuffle_buffer_size"],
         args["label_type"],
@@ -58,7 +97,7 @@ def run_model(args):
     # DEBUG (use this to understand what the iterators are returning)
     debug = False
     if debug:
-        single_batch = next(iter(batched_dataset))
+        single_batch = next(iter(train_batched_dataset))
         x_all = [
             single_batch["B01"],
             single_batch["B02"],
@@ -114,8 +153,8 @@ def run_model(args):
         if args["training_size"] % args["batch_size"] != 0:
             nb_iterations += 1
         progress_bar = tf.keras.utils.Progbar(target=nb_iterations)
-        batch_iterator = iter(batched_dataset)
 
+        batch_iterator = iter(train_batched_dataset)
         for i, single_batch in enumerate(batch_iterator):
             x_all = [
                 single_batch["B01"],
@@ -152,6 +191,7 @@ def run_model(args):
         # if epoch % 5 == 0:
         print(" Epoch {:03d}: Loss: {:.3f}".format(epoch, epoch_loss_avg.result(),))
 
+        # Evaluate model using the eval dataset
         (
             epoch_micro_precision,
             epoch_macro_precision,
@@ -159,7 +199,7 @@ def run_model(args):
             epoch_macro_recall,
             epoch_micro_accuracy,
             epoch_macro_accuracy,
-        ) = epoch_custom_metrics.result()
+        ) = evaluate_model(model, val_batched_dataset, nb_class)
 
         print(
             "Epoch {:03d}: micro: accuracy: {:.3f}, precision: {:.3f}, recall: {:.3f}".format(
