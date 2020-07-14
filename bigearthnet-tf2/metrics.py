@@ -23,6 +23,12 @@ class CustomMetrics(tf.keras.metrics.Metric):
         self._class_fn = self.add_weight(
             name="fn", shape=(nb_class,), initializer="zeros", dtype=tf.float64
         )
+        self._class_label_union_pred = self.add_weight(
+            name="label_union_pred",
+            shape=(nb_class,),
+            initializer="zeros",
+            dtype=tf.float64,
+        )
 
     def update_state(self, y_true, y_pred, sample_weight=None):
         y_true = tf.cast(y_true, tf.float64)
@@ -52,15 +58,17 @@ class CustomMetrics(tf.keras.metrics.Metric):
             ),
             tf.float64,
         )
-
-        # label_cardinality = tf.reduce_sum(y_true, 1)
-        # nb_ins = tf.shape(y_true)[0]
-        # nb_class = tf.shape(y_true)[1]
+        label_union_prediction = tf.cast(
+            tf.logical_or(tf.not_equal(predictions, self._zero), tf.not_equal(y_true, self._zero)),
+            tf.float64,
+        )
 
         self._class_tp.assign_add(tf.reduce_sum(true_positive, axis=0))
         self._class_fp.assign_add(tf.reduce_sum(false_positive, axis=0))
         self._class_tn.assign_add(tf.reduce_sum(true_negative, axis=0))
         self._class_fn.assign_add(tf.reduce_sum(false_positive, axis=0))
+        self._class_label_union_pred.assign_add(tf.reduce_sum(label_union_prediction, axis=0))
+
 
     def result(self):
         # Precision
@@ -95,11 +103,29 @@ class CustomMetrics(tf.keras.metrics.Metric):
         )
         macro_recall = tf.reduce_mean(macro_recall_class)
 
+        # Accuracy
+        label_union_pred_class_sum = tf.reduce_sum(self._class_label_union_pred)
+        micro_accuracy = tf.where(
+            tf.equal(label_union_pred_class_sum, self._zero),
+            x = self._zero,
+            y = tf.divide(tf.reduce_sum(self._class_tp), label_union_pred_class_sum)
+        )
+
+        label_union_pred_class = self._class_label_union_pred
+        macro_accuracy_class = tf.where(
+            tf.equal(label_union_pred_class, self._zero),
+            x=self._zero,
+            y=tf.divide(self._class_tp, label_union_pred_class),
+        )
+        macro_accuracy = tf.reduce_mean(macro_accuracy_class)
+
         return (
             micro_precision,
             macro_precision,
             micro_recall,
             macro_recall,
+            micro_accuracy,
+            macro_accuracy
         )
 
     def reset_states(self):

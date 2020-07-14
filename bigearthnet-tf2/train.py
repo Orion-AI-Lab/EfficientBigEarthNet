@@ -17,6 +17,7 @@ from metrics import CustomMetrics
 
 SEED = 42
 
+
 def run_model(args):
     print("TensorFlow version: {}".format(tf.__version__))
     print("Eager execution: {}".format(tf.executing_eagerly()))
@@ -91,11 +92,12 @@ def run_model(args):
 
     # The main loop
     batch_size = args["batch_size"]
+    epoch_custom_metrics = CustomMetrics(nb_class=nb_class)
     for epoch in range(args["nb_epoch"]):
         print("Starting epoch {}".format(epoch))
 
         epoch_loss_avg = tf.keras.metrics.Mean()
-        epoch_custom_metrics = CustomMetrics(nb_class=nb_class)
+        epoch_custom_metrics.reset_states()
 
         nb_iterations = args["training_size"] / args["batch_size"]
         if args["training_size"] % args["batch_size"] != 0:
@@ -144,19 +146,18 @@ def run_model(args):
             epoch_macro_precision,
             epoch_micro_recall,
             epoch_macro_recall,
+            epoch_micro_accuracy,
+            epoch_macro_accuracy,
         ) = epoch_custom_metrics.result()
+
         print(
-            "Epoch {:03d}: micro precision: {:.3f}".format(epoch, epoch_micro_precision)
-        )
-        print(
-            "Epoch {:03d}: macro precision: {:.3f}".format(
-                epoch, epoch_macro_precision
+            "Epoch {:03d}: micro: accuracy: {:.3f}, precision: {:.3f}, recall: {:.3f}".format(
+                epoch, epoch_micro_accuracy, epoch_micro_precision, epoch_micro_recall
             )
         )
-        print("Epoch {:03d}: micro recall: {:.3f}".format(epoch, epoch_micro_recall))
         print(
-            "Epoch {:03d}: macro recall: {:.3f}".format(
-                epoch, epoch_macro_recall
+            "Epoch {:03d}: macro: accuracy: {:.3f}, precision: {:.3f}, recall: {:.3f}".format(
+                epoch, epoch_macro_accuracy, epoch_macro_precision, epoch_macro_recall
             )
         )
 
