@@ -13,9 +13,9 @@ import json
 
 from inputs import create_batched_dataset
 from model import BigEarthModel, ResNet50BigEarthModel
+from metrics import CustomMetrics
 
 SEED = 42
-
 
 def run_model(args):
     print("TensorFlow version: {}".format(tf.__version__))
@@ -38,9 +38,9 @@ def run_model(args):
     )
 
     # Create our model
-    nb_class = 19 if args["label_type"] == 'BigEarthNet-19' else 43
+    nb_class = 19 if args["label_type"] == "BigEarthNet-19" else 43
     bigearth_model = BigEarthModel(nb_class=nb_class)
-    #bigearth_model = ResNet50BigEarthModel(nb_class=nb_class)
+    # bigearth_model = ResNet50BigEarthModel(nb_class=nb_class)
     model = bigearth_model.model
 
     # DEBUG (use this to understand what the iterators are returning)
@@ -63,7 +63,7 @@ def run_model(args):
         ]
         y = single_batch[args["label_type"] + "_labels_multi_hot"]
         y_ = model(x_all, training=True)
-        #print(x_all)
+        # print(x_all)
         print(y)
         print(y_)
 
@@ -95,12 +95,7 @@ def run_model(args):
         print("Starting epoch {}".format(epoch))
 
         epoch_loss_avg = tf.keras.metrics.Mean()
-
-        # TODO: Fix the metrics. We are essentially doing 19 different
-        #       binary classifications. 
-        epoch_accuracy = tf.keras.metrics.CategoricalAccuracy()
-        epoch_precision = tf.keras.metrics.Precision()
-        epoch_recall = tf.keras.metrics.Recall()
+        epoch_custom_metrics = CustomMetrics(nb_class=nb_class)
 
         nb_iterations = args["training_size"] / args["batch_size"]
         if args["training_size"] % args["batch_size"] != 0:
@@ -133,26 +128,35 @@ def run_model(args):
             epoch_loss_avg.update_state(loss_value)  # Add current batch loss
             # Compare predicted label to actual label
             y_ = model(x_all, training=True)
-            epoch_accuracy.update_state(y, y_)
-            epoch_precision.update_state(y, y_)
-            epoch_recall.update_state(y, y_)
+            # Update all custom metrics
+            epoch_custom_metrics.update_state(y, y_)
 
-            progress_bar.update(i+1)
+            progress_bar.update(i + 1)
 
         # End epoch
         train_loss_results.append(epoch_loss_avg.result())
-        train_accuracy_results.append(epoch_accuracy.result())
-        train_precision_results.append(epoch_precision.result())
-        train_recall_results.append(epoch_recall.result())
 
         # if epoch % 5 == 0:
+        print(" Epoch {:03d}: Loss: {:.3f}".format(epoch, epoch_loss_avg.result(),))
+
+        (
+            epoch_micro_precision,
+            epoch_macro_precision_class_avg,
+            epoch_micro_recall,
+            epoch_macro_recall_class_avg,
+        ) = epoch_custom_metrics.result()
         print(
-            "Epoch {:03d}: Loss: {:.3f}, Accuracy: {:.3%}, Precision: {:.3%}, Recall: {:.3%}".format(
-                epoch,
-                epoch_loss_avg.result(),
-                epoch_accuracy.result(),
-                epoch_precision.result(),
-                epoch_recall.result(),
+            "Epoch {:03d}: micro precision: {:.3f}".format(epoch, epoch_micro_precision)
+        )
+        print(
+            "Epoch {:03d}: macro precision class avg: {:.3f}".format(
+                epoch, epoch_macro_precision_class_avg
+            )
+        )
+        print("Epoch {:03d}: micro recall: {:.3f}".format(epoch, epoch_micro_recall))
+        print(
+            "Epoch {:03d}: macro recall class avg: {:.3f}".format(
+                epoch, epoch_macro_recall_class_avg
             )
         )
 
@@ -170,5 +174,4 @@ if __name__ == "__main__":
         args.update(model_args)
 
     run_model(args)
-    
 
