@@ -11,7 +11,7 @@ from tensorflow.keras.layers import Layer
 from tensorflow.keras.models import Model
 from tensorflow.keras import backend as K
 
-from tensorflow.keras.applications import ResNet50, ResNet101
+from tensorflow.keras.applications import ResNet50, ResNet101, ResNet152, VGG16, VGG19
 
 from tensorflow.python.ops import nn
 
@@ -22,6 +22,9 @@ MODELS_CLASS = {
     "dense": "BigEarthModel",
     "ResNet50": "ResNet50BigEarthModel",
     "ResNet101": "ResNet101BigEarthModel",
+    "ResNet152": "ResNet152BigEarthModel",
+    "VGG16": "VGG16BigEarthModel",
+    "VGG19": "VGG19BigEarthModel",
 }
 
 
@@ -165,3 +168,82 @@ class ResNet101BigEarthModel(BigEarthModel):
         )(x)
 
         return x
+
+
+class ResNet152BigEarthModel(BigEarthModel):
+    def __init__(self, nb_class):
+        super().__init__(nb_class)
+
+    def _create_model_logits(self, allbands):
+
+        # Use a 1x1 convolution to drop the channels from 12 to 3
+        x = Conv2D(
+            filters=3,
+            kernel_size=(1, 1),
+            data_format="channels_last",
+            input_shape=(120, 120, 12),
+            dtype=self._dtype,
+        )(allbands)
+
+        # Add ResNet152
+        x = ResNet152(
+            include_top=True,
+            weights=None,
+            input_shape=(120, 120, 3),
+            pooling=max,
+        )(x)
+
+        return x
+
+
+class VGG16BigEarthModel(BigEarthModel):
+    def __init__(self, nb_class):
+        super().__init__(nb_class)
+
+    def _create_model_logits(self, allbands):
+
+        # Use a 1x1 convolution to drop the channels from 12 to 3
+        x = Conv2D(
+            filters=3,
+            kernel_size=(1, 1),
+            data_format="channels_last",
+            input_shape=(120, 120, 12),
+            dtype=self._dtype,
+        )(allbands)
+
+        # Add VGG16
+        x = VGG16(
+            include_top=True,
+            weights=None,
+            input_shape=(120, 120, 3),
+            pooling=max,
+            classifier_activation=None,
+        )(x)
+
+        return x
+
+class VGG19BigEarthModel(BigEarthModel):
+    def __init__(self, nb_class):
+        super().__init__(nb_class)
+
+    def _create_model_logits(self, allbands):
+
+        # Use a 1x1 convolution to drop the channels from 12 to 3
+        x = Conv2D(
+            filters=3,
+            kernel_size=(1, 1),
+            data_format="channels_last",
+            input_shape=(120, 120, 12),
+            dtype=self._dtype,
+        )(allbands)
+
+        # Add VGG19
+        x = VGG19(
+            include_top=True,
+            weights=None,
+            input_shape=(120, 120, 3),
+            pooling=max,
+            classifier_activation=None,
+        )(x)
+
+        return x        
