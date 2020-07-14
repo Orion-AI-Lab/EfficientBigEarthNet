@@ -11,7 +11,7 @@ from tensorflow.keras.layers import Layer
 from tensorflow.keras.models import Model
 from tensorflow.keras import backend as K
 
-from tensorflow.keras.applications import ResNet50
+from tensorflow.keras.applications import ResNet50, ResNet101
 
 from tensorflow.python.ops import nn
 
@@ -19,13 +19,16 @@ from inputs import BAND_STATS
 
 
 MODELS_CLASS = {
+    "dense": "BigEarthModel",
     "ResNet50": "ResNet50BigEarthModel",
+    "ResNet101": "ResNet101BigEarthModel",
 }
 
 
 class BigEarthModel:
-    def __init__(self, nb_class):
+    def __init__(self, nb_class, dtype="float64"):
         self._nb_class = nb_class
+        self._dtype = dtype
 
         self._inputB04 = Input(shape=(120, 120,), dtype=tf.float32)
         self._inputB03 = Input(shape=(120, 120,), dtype=tf.float32)
@@ -58,6 +61,7 @@ class BigEarthModel:
         )
         print("20m shape: {}".format(bands_20m.shape))
 
+        # TODO: Should we include those? The bigearthnet authors do not.
         self._inputB01 = Input(shape=(20, 20,), dtype=tf.float32)
         self._inputB09 = Input(shape=(20, 20,), dtype=tf.float32)
         bands_60m = tf.keras.backend.stack([self._inputB01, self._inputB09], axis=3)
@@ -84,14 +88,14 @@ class BigEarthModel:
             self._inputB12,
         ]
 
-        # create internal model 
+        # create internal model
         self._logits = self._create_model_logits(allbands)
 
         # Add one last dense layer with biases and sigmoid activation
         # This is like having nb_class separate binary classifiers
-        self._output = Dense(units=self._nb_class, activation='sigmoid', use_bias=True)(
-            self._logits
-        )
+        self._output = Dense(
+            units=self._nb_class, dtype=self._dtype, activation="sigmoid", use_bias=True
+        )(self._logits)
 
         self._model = Model(inputs=inputs, outputs=self._output)
         self._logits_model = Model(inputs=inputs, outputs=self._logits)
@@ -105,9 +109,9 @@ class BigEarthModel:
         return self._logits_model
 
     def _create_model_logits(self, allbands):
-        x = Flatten()(allbands)
-        x = Dense(128)(x)
-        x = Dense(64)(x)
+        x = Flatten(dtype=self._dtype)(allbands)
+        x = Dense(128, dtype=self._dtype)(x)
+        x = Dense(64, dtype=self._dtype)(x)
         return x
 
 
@@ -123,10 +127,37 @@ class ResNet50BigEarthModel(BigEarthModel):
             kernel_size=(1, 1),
             data_format="channels_last",
             input_shape=(120, 120, 12),
+            dtype=self._dtype,
         )(allbands)
 
-        # Add ResNet50 with additional dense layer as the end
+        # Add ResNet50 
         x = ResNet50(
+            include_top=True,
+            weights=None,
+            input_shape=(120, 120, 3),
+            pooling=max,
+        )(x)
+
+        return x
+
+
+class ResNet101BigEarthModel(BigEarthModel):
+    def __init__(self, nb_class):
+        super().__init__(nb_class)
+
+    def _create_model_logits(self, allbands):
+
+        # Use a 1x1 convolution to drop the channels from 12 to 3
+        x = Conv2D(
+            filters=3,
+            kernel_size=(1, 1),
+            data_format="channels_last",
+            input_shape=(120, 120, 12),
+            dtype=self._dtype,
+        )(allbands)
+
+        # Add ResNet101
+        x = ResNet101(
             include_top=True,
             weights=None,
             input_shape=(120, 120, 3),

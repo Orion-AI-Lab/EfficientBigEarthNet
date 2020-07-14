@@ -12,8 +12,9 @@ import sys
 import json
 
 from inputs import create_batched_dataset
-from model import BigEarthModel, ResNet50BigEarthModel
 from metrics import CustomMetrics
+from models import MODELS_CLASS
+import models
 
 SEED = 42
 
@@ -25,6 +26,10 @@ def run_model(args):
 
     print("Batch size: {}".format(args["batch_size"]))
     print("Epochs: {}".format(args["nb_epoch"]))
+
+    physical_devices = tf.config.experimental.list_physical_devices('GPU')
+    for d in physical_devices:
+        tf.config.experimental.set_memory_growth(d, True)
 
     rn.seed(SEED)
     np.random.seed(SEED)
@@ -40,8 +45,14 @@ def run_model(args):
 
     # Create our model
     nb_class = 19 if args["label_type"] == "BigEarthNet-19" else 43
-    bigearth_model = BigEarthModel(nb_class=nb_class)
-    # bigearth_model = ResNet50BigEarthModel(nb_class=nb_class)
+
+    try: 
+        bigearth_model_class = MODELS_CLASS[args["model_name"]]
+    except:
+        bigearth_model_class = MODELS_CLASS["dense"]
+    
+    print('Creating model: {}'.format(args['model_name']))
+    bigearth_model = getattr(models, bigearth_model_class)(nb_class=nb_class)
     model = bigearth_model.model
 
     # DEBUG (use this to understand what the iterators are returning)
@@ -96,7 +107,7 @@ def run_model(args):
     for epoch in range(args["nb_epoch"]):
         print("Starting epoch {}".format(epoch))
 
-        epoch_loss_avg = tf.keras.metrics.Mean()
+        epoch_loss_avg = tf.keras.metrics.Mean(dtype='float64')
         epoch_custom_metrics.reset_states()
 
         nb_iterations = args["training_size"] / args["batch_size"]
