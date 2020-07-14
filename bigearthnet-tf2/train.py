@@ -44,7 +44,7 @@ def run_model(args):
     model = bigearth_model.model
 
     # DEBUG (use this to understand what the iterators are returning)
-    debug = True
+    debug = False
     if debug:
         single_batch = next(iter(batched_dataset))
         x_all = [
@@ -141,22 +141,22 @@ def run_model(args):
 
         (
             epoch_micro_precision,
-            epoch_macro_precision_class_avg,
+            epoch_macro_precision,
             epoch_micro_recall,
-            epoch_macro_recall_class_avg,
+            epoch_macro_recall,
         ) = epoch_custom_metrics.result()
         print(
             "Epoch {:03d}: micro precision: {:.3f}".format(epoch, epoch_micro_precision)
         )
         print(
-            "Epoch {:03d}: macro precision class avg: {:.3f}".format(
-                epoch, epoch_macro_precision_class_avg
+            "Epoch {:03d}: macro precision: {:.3f}".format(
+                epoch, epoch_macro_precision
             )
         )
         print("Epoch {:03d}: micro recall: {:.3f}".format(epoch, epoch_micro_recall))
         print(
-            "Epoch {:03d}: macro recall class avg: {:.3f}".format(
-                epoch, epoch_macro_recall_class_avg
+            "Epoch {:03d}: macro recall: {:.3f}".format(
+                epoch, epoch_macro_recall
             )
         )
 
