@@ -73,7 +73,9 @@ class BigEarthModel:
         )
         print("60m shape: {}".format(bands_60m.shape))
 
-        allbands = tf.concat([bands_10m, bands_20m, bands_60m], axis=3)
+        #allbands = tf.concat([bands_10m, bands_20m, bands_60m], axis=3)
+        allbands = tf.concat([bands_10m, bands_20m], axis=3)
+        self._num_bands = allbands.shape[3]
         print("allbands shape: {}".format(allbands.shape))
 
         inputs = [
@@ -118,12 +120,52 @@ class BigEarthModel:
         return x
 
 
+class DenseNet121BigEarthModel(BigEarthModel):
+    def __init__(self, nb_class):
+        super().__init__(nb_class)
+
+    def _create_model_logits(self, allbands, num_bands=None):
+        if num_bands is None:
+            num_bands = self._num_bands
+        x = tf.keras.applications.DenseNet121(
+            include_top=False, weights=None, input_shape=(120,120,num_bands))(allbands)
+
+        return x
+
+class DenseNet169BigEarthModel(BigEarthModel):
+    def __init__(self, nb_class):
+        super().__init__(nb_class)
+
+    def _create_model_logits(self, allbands, num_bands=None):
+        if num_bands is None:
+            num_bands = self._num_bands
+        x = tf.keras.applications.DenseNet169(
+            include_top=False, weights=None, input_shape=(120,120,num_bands))(allbands)
+
+        return x
+
+
+class DenseNet201BigEarthModel(BigEarthModel):
+    def __init__(self, nb_class):
+        super().__init__(nb_class)
+
+    def _create_model_logits(self, allbands, num_bands=None):
+        if num_bands is None:
+            num_bands = self._num_bands
+        x = tf.keras.applications.DenseNet201(
+            include_top=False, weights=None, input_shape=(120,120,num_bands))(allbands)
+
+        return x
+
+
+
 class ResNet50BigEarthModel(BigEarthModel):
     def __init__(self, nb_class):
         super().__init__(nb_class)
 
-    def _create_model_logits(self, allbands, num_bands=12):
-
+    def _create_model_logits(self, allbands, num_bands=None):
+        if num_bands is None:
+            num_bands = self._num_bands
         x = ResNet50(
             include_top=False,
             weights=None,
@@ -138,8 +180,9 @@ class ResNet101BigEarthModel(BigEarthModel):
     def __init__(self, nb_class):
         super().__init__(nb_class)
 
-    def _create_model_logits(self, allbands, num_bands=12):
-
+    def _create_model_logits(self, allbands, num_bands=None):
+        if num_bands is None:
+            num_bands = self._num_bands
         x = ResNet101(
             include_top=False,
             weights=None,
@@ -154,8 +197,9 @@ class ResNet152BigEarthModel(BigEarthModel):
     def __init__(self, nb_class):
         super().__init__(nb_class)
 
-    def _create_model_logits(self, allbands, num_bands=12):
-
+    def _create_model_logits(self, allbands, num_bands=None):
+        if num_bands is None:
+            num_bands = self._num_bands
         x = ResNet152(
             include_top=False,
             weights=None,
@@ -170,8 +214,9 @@ class VGG16BigEarthModel(BigEarthModel):
     def __init__(self, nb_class):
         super().__init__(nb_class)
 
-    def _create_model_logits(self, allbands, num_bands=12):
-
+    def _create_model_logits(self, allbands, num_bands=None):
+        if num_bands is None:
+            num_bands = self._num_bands
         x = VGG16(
             include_top=False,
             weights=None,
@@ -185,8 +230,9 @@ class VGG19BigEarthModel(BigEarthModel):
     def __init__(self, nb_class):
         super().__init__(nb_class)
 
-    def _create_model_logits(self, allbands, num_bands=12):
-
+    def _create_model_logits(self, allbands, num_bands=None):
+        if num_bands is None:
+            num_bands = self._num_bands
         # Add VGG19
         x = VGG19(
             include_top=False,
