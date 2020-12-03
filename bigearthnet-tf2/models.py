@@ -89,8 +89,6 @@ class BigEarthModel:
         self.bands_10m = self.band_dict['band_10']
         self.bands_20m = self.band_dict['band_20']
         self.bands_60m = self.band_dict['band_60']
-        self.is_training = True
-
         self._num_bands = allbands.shape[3]
         print("allbands shape: {}".format(allbands.shape))
 
@@ -324,44 +322,44 @@ class DNN_model(BigEarthModel):
             lambda x: tf.image.convert_image_dtype((tf.image.per_image_standardization(x) + 1.) / 2., dtype=tf.uint8,
                                                    saturate=True), img_batch, dtype=tf.uint8)
 
-    def branch_model_10m(self, inputs, is_training):
-            out = self.conv_block(inputs, 32, [5, 5], is_training, 'conv_block_10_0')
+    def branch_model_10m(self, inputs):
+            out = self.conv_block(inputs, 32, [5, 5], 'conv_block_10_0')
             out = self.pooling(out, 'max_pooling_10')
-            out = self.dropout(out, 0.25, is_training, 'dropout_10_0')
+            out = self.dropout(out, 0.25, 'dropout_10_0')
 
-            out = self.conv_block(out, 32, [5, 5], is_training, 'conv_block_10_1')
+            out = self.conv_block(out, 32, [5, 5], 'conv_block_10_1')
             out = self.pooling(out, 'max_pooling_10_1')
-            out = self.dropout(out, 0.25, is_training, 'dropout_10_1')
-            out = self.conv_block(out, 64, [3, 3], is_training, 'conv_block_10_2')
-            out = self.dropout(out, 0.25, is_training, 'dropout_10_2')
+            out = self.dropout(out, 0.25, 'dropout_10_1')
+            out = self.conv_block(out, 64, [3, 3], 'conv_block_10_2')
+            out = self.dropout(out, 0.25, 'dropout_10_2')
             out = tf.keras.layers.Flatten()(out)
-            out = self.fully_connected_block(out, self.feature_size, is_training, 'fc_block_10_0')
-            feature = self.dropout(out, 0.5, is_training, 'dropout_10_3')
+            out = self.fully_connected_block(out, self.feature_size, 'fc_block_10_0')
+            feature = self.dropout(out, 0.5, 'dropout_10_3')
             return feature
 
-    def branch_model_20m(self, inputs, is_training):
-            out = self.conv_block(inputs, 32, [3, 3], is_training, 'conv_block_20_0')
+    def branch_model_20m(self, inputs):
+            out = self.conv_block(inputs, 32, [3, 3], 'conv_block_20_0')
             out = self.pooling(out, 'max_pooling_20_0')
-            out = self.dropout(out, 0.25, is_training, 'dropout_20_0')
-            out = self.conv_block(out, 32, [3, 3], is_training, 'conv_block_20_1')
-            out = self.dropout(out, 0.25, is_training, 'dropout_20_1')
-            out = self.conv_block(out, 64, [3, 3], is_training, 'conv_block_20_2')
-            out = self.dropout(out, 0.25, is_training, 'dropout_20_2')
+            out = self.dropout(out, 0.25, 'dropout_20_0')
+            out = self.conv_block(out, 32, [3, 3], 'conv_block_20_1')
+            out = self.dropout(out, 0.25, 'dropout_20_1')
+            out = self.conv_block(out, 64, [3, 3], 'conv_block_20_2')
+            out = self.dropout(out, 0.25, 'dropout_20_2')
             out = tf.keras.layers.Flatten()(out)
-            out = self.fully_connected_block(out, self.feature_size, is_training, 'fc_block_20_0')
-            feature = self.dropout(out, 0.5, is_training, 'dropout_20_3')
+            out = self.fully_connected_block(out, self.feature_size, 'fc_block_20_0')
+            feature = self.dropout(out, 0.5, 'dropout_20_3')
             return feature
 
-    def branch_model_60m(self, inputs, is_training):
-            out = self.conv_block(inputs, 32, [2, 2], is_training, 'conv_block_60_0')
-            out = self.dropout(out, 0.25, is_training, 'dropout_60_0')
-            out = self.conv_block(out, 32, [2, 2], is_training, 'conv_block_60_1')
-            out = self.dropout(out, 0.25, is_training, 'dropout_60_1')
-            out = self.conv_block(out, 32, [2, 2], is_training, 'conv_block_60_2')
-            out = self.dropout(out, 0.25, is_training, 'dropout_60_2')
+    def branch_model_60m(self, inputs):
+            out = self.conv_block(inputs, 32, [2, 2], 'conv_block_60_0')
+            out = self.dropout(out, 0.25, 'dropout_60_0')
+            out = self.conv_block(out, 32, [2, 2], 'conv_block_60_1')
+            out = self.dropout(out, 0.25, 'dropout_60_1')
+            out = self.conv_block(out, 32, [2, 2], 'conv_block_60_2')
+            out = self.dropout(out, 0.25, 'dropout_60_2')
             out = tf.keras.layers.Flatten()(out)
-            out = self.fully_connected_block(out, self.feature_size, is_training, 'fc_block_60_0')
-            feature = self.dropout(out, 0.5, is_training, 'dropout_60_3')
+            out = self.fully_connected_block(out, self.feature_size, 'fc_block_60_0')
+            feature = self.dropout(out, 0.5, 'dropout_60_3')
             return feature
 
 
@@ -373,12 +371,12 @@ class DNN_model(BigEarthModel):
                 [self.nb_bands_10m, self.nb_bands_20m, self.nb_bands_60m],
                 [self.branch_model_10m, self.branch_model_20m, self.branch_model_60m], ['_10', '_20', '_60']):
             print('Shape : ', img_bands.shape)
-            branch_features.append(tf.reshape(branch_model(img_bands, self.is_training), [-1, self.feature_size]))
+            branch_features.append(tf.reshape(branch_model(img_bands), [-1, self.feature_size]))
 
             patches_concat_embed_ = tf.concat(branch_features, -1)
             patches_concat_embed_ = self.fully_connected_block(patches_concat_embed_, self.feature_size,
-                                                               self.is_training, 'fc_block_0' + resolution)
-            patches_concat_embed_ = self.dropout(patches_concat_embed_, 0.25, self.is_training,
+                                                               'fc_block_0' + resolution)
+            patches_concat_embed_ = self.dropout(patches_concat_embed_, 0.25,
                                                  'dropout_0' + resolution)
 
-        return self.dropout(patches_concat_embed_, 0.5, self.is_training, 'dropout_0' + resolution)
+        return self.dropout(patches_concat_embed_, 0.5, 'dropout_0' + resolution)
