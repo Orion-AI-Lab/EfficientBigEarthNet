@@ -17,6 +17,8 @@ from tensorflow.python.ops import nn
 
 from inputs import BAND_STATS
 
+SEED = 42
+
 
 MODELS_CLASS = {
     "dense": "BigEarthModel",
@@ -25,6 +27,10 @@ MODELS_CLASS = {
     "ResNet152": "ResNet152BigEarthModel",
     "VGG16": "VGG16BigEarthModel",
     "VGG19": "VGG19BigEarthModel",
+    "KBranch": "DNN_model",
+    "DenseNet121": "DenseNet121BigEarthModel",
+    "DenseNet161": "DenseNet169BigEarthModel",
+    "DenseNet201": "DenseNet201BigEarthModel"
 }
 
 
@@ -73,8 +79,18 @@ class BigEarthModel:
         )
         print("60m shape: {}".format(bands_60m.shape))
 
-        #allbands = tf.concat([bands_10m, bands_20m, bands_60m], axis=3)
-        allbands = tf.concat([bands_10m, bands_20m], axis=3)
+        allbands = tf.concat([bands_10m, bands_20m, bands_60m], axis=3)
+        #allbands = tf.concat([bands_10m, bands_20m], axis=3)
+        self.band_dict = {'band_10': bands_10m, 'band_20': bands_20m, 'band_60': bands_60m}
+        self.feature_size = 128
+        self.nb_bands_10m = 4
+        self.nb_bands_20m = 6
+        self.nb_bands_60m = 2
+        self.bands_10m = self.band_dict['band_10']
+        self.bands_20m = self.band_dict['band_20']
+        self.bands_60m = self.band_dict['band_60']
+        self.is_training = True
+
         self._num_bands = allbands.shape[3]
         print("allbands shape: {}".format(allbands.shape))
 
@@ -124,9 +140,9 @@ class DenseNet121BigEarthModel(BigEarthModel):
     def __init__(self, nb_class):
         super().__init__(nb_class)
 
-    def _create_model_logits(self, allbands, num_bands=None):
-        if num_bands is None:
-            num_bands = self._num_bands
+    def _create_model_logits(self, allbands):
+
+        num_bands = self._num_bands
         x = tf.keras.applications.DenseNet121(
             include_top=False, weights=None, input_shape=(120,120,num_bands))(allbands)
 
@@ -136,9 +152,9 @@ class DenseNet169BigEarthModel(BigEarthModel):
     def __init__(self, nb_class):
         super().__init__(nb_class)
 
-    def _create_model_logits(self, allbands, num_bands=None):
-        if num_bands is None:
-            num_bands = self._num_bands
+    def _create_model_logits(self, allbands):
+
+        num_bands = self._num_bands
         x = tf.keras.applications.DenseNet169(
             include_top=False, weights=None, input_shape=(120,120,num_bands))(allbands)
 
@@ -149,9 +165,9 @@ class DenseNet201BigEarthModel(BigEarthModel):
     def __init__(self, nb_class):
         super().__init__(nb_class)
 
-    def _create_model_logits(self, allbands, num_bands=None):
-        if num_bands is None:
-            num_bands = self._num_bands
+    def _create_model_logits(self, allbands):
+
+        num_bands = self._num_bands
         x = tf.keras.applications.DenseNet201(
             include_top=False, weights=None, input_shape=(120,120,num_bands))(allbands)
 
@@ -163,9 +179,9 @@ class ResNet50BigEarthModel(BigEarthModel):
     def __init__(self, nb_class):
         super().__init__(nb_class)
 
-    def _create_model_logits(self, allbands, num_bands=None):
-        if num_bands is None:
-            num_bands = self._num_bands
+    def _create_model_logits(self, allbands):
+
+        num_bands = self._num_bands
         x = ResNet50(
             include_top=False,
             weights=None,
@@ -180,9 +196,8 @@ class ResNet101BigEarthModel(BigEarthModel):
     def __init__(self, nb_class):
         super().__init__(nb_class)
 
-    def _create_model_logits(self, allbands, num_bands=None):
-        if num_bands is None:
-            num_bands = self._num_bands
+    def _create_model_logits(self, allbands):
+        num_bands = self._num_bands
         x = ResNet101(
             include_top=False,
             weights=None,
@@ -197,9 +212,8 @@ class ResNet152BigEarthModel(BigEarthModel):
     def __init__(self, nb_class):
         super().__init__(nb_class)
 
-    def _create_model_logits(self, allbands, num_bands=None):
-        if num_bands is None:
-            num_bands = self._num_bands
+    def _create_model_logits(self, allbands):
+        num_bands = self._num_bands
         x = ResNet152(
             include_top=False,
             weights=None,
@@ -214,9 +228,9 @@ class VGG16BigEarthModel(BigEarthModel):
     def __init__(self, nb_class):
         super().__init__(nb_class)
 
-    def _create_model_logits(self, allbands, num_bands=None):
-        if num_bands is None:
-            num_bands = self._num_bands
+    def _create_model_logits(self, allbands):
+
+        num_bands = self._num_bands
         x = VGG16(
             include_top=False,
             weights=None,
@@ -230,9 +244,9 @@ class VGG19BigEarthModel(BigEarthModel):
     def __init__(self, nb_class):
         super().__init__(nb_class)
 
-    def _create_model_logits(self, allbands, num_bands=None):
-        if num_bands is None:
-            num_bands = self._num_bands
+    def _create_model_logits(self, allbands):
+
+        num_bands = self._num_bands
         # Add VGG19
         x = VGG19(
             include_top=False,
@@ -241,4 +255,130 @@ class VGG19BigEarthModel(BigEarthModel):
             pooling='avg',
         )(allbands)
 
-        return x        
+        return x
+
+
+class DNN_model(BigEarthModel):
+    def __init__(self, nb_class):
+        super().__init__(nb_class)
+
+    def fully_connected_block(self, inputs, nb_neurons, name):
+            fully_connected_res = tf.keras.layers.Dense(
+                units=nb_neurons,
+                activation=None,
+                use_bias=True,
+                kernel_initializer=tf.keras.initializers.GlorotNormal(seed=SEED),
+                bias_initializer=tf.keras.initializers.Zeros(),
+                kernel_regularizer=tf.keras.regularizers.l2(l=2e-5),
+                bias_regularizer=None,
+                activity_regularizer=None,
+                trainable=True,
+                name=name,
+            )(inputs)
+            batch_res = tf.keras.layers.BatchNormalization()(fully_connected_res)
+            return tf.nn.relu(features=batch_res, name='relu')
+
+    def conv_block(self, inputs, nb_filter, filter_size, name):
+            conv_res = tf.keras.layers.Conv2D(
+                filters=nb_filter,
+                kernel_size=filter_size,
+                strides=(1, 1),
+                padding='same',
+                data_format='channels_last',
+                dilation_rate=(1, 1),
+                activation=None,
+                use_bias=True,
+                kernel_initializer=tf.keras.initializers.GlorotNormal(seed=SEED),
+                bias_initializer=tf.keras.initializers.Zeros(),
+                kernel_regularizer=tf.keras.regularizers.l2(l=2e-5),
+                bias_regularizer=None,
+                activity_regularizer=None,
+                trainable=True,
+                name = name
+            )(inputs)
+            batch_res = tf.keras.layers.BatchNormalization()(conv_res)
+
+            return tf.nn.relu(features=batch_res, name='relu')
+
+    def pooling(self, inputs, name):
+        return tf.nn.max_pool(
+            input=inputs,
+            ksize=[1, 2, 2, 1],
+            strides=[1, 2, 2, 1],
+            padding="VALID",
+            data_format='NHWC',
+            name=name
+        )
+
+    def dropout(self, inputs, drop_rate, name):
+        return tf.nn.dropout(
+            inputs,
+            rate=drop_rate,
+            noise_shape=None,
+            seed=SEED,
+            name=name
+        )
+
+    def convert_image_to_uint8(self, img_batch):
+        return tf.map_fn(
+            lambda x: tf.image.convert_image_dtype((tf.image.per_image_standardization(x) + 1.) / 2., dtype=tf.uint8,
+                                                   saturate=True), img_batch, dtype=tf.uint8)
+
+    def branch_model_10m(self, inputs, is_training):
+            out = self.conv_block(inputs, 32, [5, 5], is_training, 'conv_block_10_0')
+            out = self.pooling(out, 'max_pooling_10')
+            out = self.dropout(out, 0.25, is_training, 'dropout_10_0')
+
+            out = self.conv_block(out, 32, [5, 5], is_training, 'conv_block_10_1')
+            out = self.pooling(out, 'max_pooling_10_1')
+            out = self.dropout(out, 0.25, is_training, 'dropout_10_1')
+            out = self.conv_block(out, 64, [3, 3], is_training, 'conv_block_10_2')
+            out = self.dropout(out, 0.25, is_training, 'dropout_10_2')
+            out = tf.keras.layers.Flatten()(out)
+            out = self.fully_connected_block(out, self.feature_size, is_training, 'fc_block_10_0')
+            feature = self.dropout(out, 0.5, is_training, 'dropout_10_3')
+            return feature
+
+    def branch_model_20m(self, inputs, is_training):
+            out = self.conv_block(inputs, 32, [3, 3], is_training, 'conv_block_20_0')
+            out = self.pooling(out, 'max_pooling_20_0')
+            out = self.dropout(out, 0.25, is_training, 'dropout_20_0')
+            out = self.conv_block(out, 32, [3, 3], is_training, 'conv_block_20_1')
+            out = self.dropout(out, 0.25, is_training, 'dropout_20_1')
+            out = self.conv_block(out, 64, [3, 3], is_training, 'conv_block_20_2')
+            out = self.dropout(out, 0.25, is_training, 'dropout_20_2')
+            out = tf.keras.layers.Flatten()(out)
+            out = self.fully_connected_block(out, self.feature_size, is_training, 'fc_block_20_0')
+            feature = self.dropout(out, 0.5, is_training, 'dropout_20_3')
+            return feature
+
+    def branch_model_60m(self, inputs, is_training):
+            out = self.conv_block(inputs, 32, [2, 2], is_training, 'conv_block_60_0')
+            out = self.dropout(out, 0.25, is_training, 'dropout_60_0')
+            out = self.conv_block(out, 32, [2, 2], is_training, 'conv_block_60_1')
+            out = self.dropout(out, 0.25, is_training, 'dropout_60_1')
+            out = self.conv_block(out, 32, [2, 2], is_training, 'conv_block_60_2')
+            out = self.dropout(out, 0.25, is_training, 'dropout_60_2')
+            out = tf.keras.layers.Flatten()(out)
+            out = self.fully_connected_block(out, self.feature_size, is_training, 'fc_block_60_0')
+            feature = self.dropout(out, 0.5, is_training, 'dropout_60_3')
+            return feature
+
+
+    def _create_model_logits(self, allbands):
+
+        branch_features = []
+        for img_bands, nb_bands, branch_model, resolution in zip(
+                [self.bands_10m, self.bands_20m, self.bands_60m],
+                [self.nb_bands_10m, self.nb_bands_20m, self.nb_bands_60m],
+                [self.branch_model_10m, self.branch_model_20m, self.branch_model_60m], ['_10', '_20', '_60']):
+            print('Shape : ', img_bands.shape)
+            branch_features.append(tf.reshape(branch_model(img_bands, self.is_training), [-1, self.feature_size]))
+
+            patches_concat_embed_ = tf.concat(branch_features, -1)
+            patches_concat_embed_ = self.fully_connected_block(patches_concat_embed_, self.feature_size,
+                                                               self.is_training, 'fc_block_0' + resolution)
+            patches_concat_embed_ = self.dropout(patches_concat_embed_, 0.25, self.is_training,
+                                                 'dropout_0' + resolution)
+
+        return self.dropout(patches_concat_embed_, 0.5, self.is_training, 'dropout_0' + resolution)
