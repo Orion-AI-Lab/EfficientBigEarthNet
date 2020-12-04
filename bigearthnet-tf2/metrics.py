@@ -1,8 +1,12 @@
 import numpy as np
 import tensorflow as tf
-
 from tensorflow.python.keras import backend as K
 
+# TP/FP/TN/FN per class
+# Precision
+#Mean Precision per class
+# Recall
+#F1 Score
 
 class CustomMetrics(tf.keras.metrics.Metric):
     def __init__(self, nb_class, name="custom_metrics", **kwargs):
@@ -63,10 +67,12 @@ class CustomMetrics(tf.keras.metrics.Metric):
             tf.float64,
         )
 
+
+
         self._class_tp.assign_add(tf.reduce_sum(true_positive, axis=0))
         self._class_fp.assign_add(tf.reduce_sum(false_positive, axis=0))
         self._class_tn.assign_add(tf.reduce_sum(true_negative, axis=0))
-        self._class_fn.assign_add(tf.reduce_sum(false_positive, axis=0))
+        self._class_fn.assign_add(tf.reduce_sum(false_negative, axis=0))
         self._class_label_union_pred.assign_add(tf.reduce_sum(label_union_prediction, axis=0))
 
 
@@ -80,6 +86,7 @@ class CustomMetrics(tf.keras.metrics.Metric):
         )
 
         nb_predict_class = self._class_tp + self._class_fp
+
         macro_precision_class = tf.where(
             tf.equal(nb_predict_class, self._zero),
             x=self._zero,
@@ -119,13 +126,21 @@ class CustomMetrics(tf.keras.metrics.Metric):
         )
         macro_accuracy = tf.reduce_mean(macro_accuracy_class)
 
+        #F1-Score
+
+        f_score = tf.where(
+            tf.logical_and(
+                tf.equal(micro_precision, self._zero), tf.equal(micro_recall, self._zero))
+                           , x=self._zero, y= 2*(micro_precision*micro_recall)/(micro_precision + micro_recall))
+
         return (
             micro_precision,
             macro_precision,
             micro_recall,
             macro_recall,
             micro_accuracy,
-            macro_accuracy
+            macro_accuracy,
+            f_score
         )
 
     def reset_states(self):

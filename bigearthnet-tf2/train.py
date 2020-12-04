@@ -17,6 +17,7 @@ from models import MODELS_CLASS
 import models
 
 SEED = 42
+first_batch = True
 
 
 def evaluate_model(model, batched_dataset, nb_class):
@@ -58,7 +59,6 @@ def run_model(args):
 
     print("Batch size: {}".format(args["batch_size"]))
     print("Epochs: {}".format(args["nb_epoch"]))
-
     physical_devices = tf.config.experimental.list_physical_devices('GPU')
     for d in physical_devices:
         tf.config.experimental.set_memory_growth(d, True)
@@ -95,7 +95,7 @@ def run_model(args):
     model = bigearth_model.model
 
     # DEBUG (use this to understand what the iterators are returning)
-    debug = False
+    debug = True
     if debug:
         single_batch = next(iter(train_batched_dataset))
         x_all = [
@@ -129,10 +129,24 @@ def run_model(args):
     def grad(model, inputs, targets):
         with tf.GradientTape() as tape:
             loss_value = loss(model, inputs, targets, training=True)
+        if args['parallel']:
+            # Horovod: add Horovod Distributed GradientTape.
+            tape = hvd.DistributedGradientTape(tape)
+            global first_batch
+            if first_batch:
+                first_batch = False
+                hvd.broadcast_variables(model.variables, root_rank=0)
+                hvd.broadcast_variables(optimizer.variables(), root_rank=0)
+
         return loss_value, tape.gradient(loss_value, model.trainable_variables)
 
     # Setup optimizer
     optimizer = tf.keras.optimizers.Adam(learning_rate=args["learning_rate"])
+    if args['parallel']:
+        # Add Horovod Distributed Optimizer
+        optimizer = hvd.DistributedOptimizer(optimizer)
+        hooks = [hvd.BroadcastGlobalVariablesHook(0)]
+
 
     # Keep results for plotting
     train_loss_results = []
@@ -199,11 +213,12 @@ def run_model(args):
             epoch_macro_recall,
             epoch_micro_accuracy,
             epoch_macro_accuracy,
+            f_score
         ) = evaluate_model(model, val_batched_dataset, nb_class)
 
         print(
-            "Epoch {:03d}: micro: accuracy: {:.3f}, precision: {:.3f}, recall: {:.3f}".format(
-                epoch, epoch_micro_accuracy, epoch_micro_precision, epoch_micro_recall
+            "Epoch {:03d}: micro: accuracy: {:.3f}, precision: {:.3f}, recall: {:.3f}, F-score: {:.3f}".format(
+                epoch, epoch_micro_accuracy, epoch_micro_precision, epoch_micro_recall, f_score
             )
         )
         print(
@@ -215,15 +230,28 @@ def run_model(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Training script")
-    parser.add_argument("configs", help="json config file")
+    parser.add_argument("--configs", required = False, default= '', help="json config file")
+    parser.add_argument("--parallel", required= False, default=False, help="Enable parallelism")
     parser_args = parser.parse_args()
 
+    if parser_args.configs == '':
+        parser_args.configs = 'configs/base.json'
     with open("configs/base.json", "rb") as f:
         args = json.load(f)
 
     with open(os.path.realpath(parser_args.configs), "rb") as f:
         model_args = json.load(f)
         args.update(model_args)
+
+    if parser_args.parallel:
+        import horovod.tensorflow as hvd
+        args['parallel'] = True
+        hvd.init()
+        gpus = tf.config.experimental.list_physical_devices('GPU')
+        for gpu in gpus:
+            tf.config.experimental.set_memory_growth(gpu, True)
+        if gpus:
+            tf.config.experimental.set_visible_devices(gpus[hvd.local_rank()], 'GPU')
 
     run_model(args)
 
