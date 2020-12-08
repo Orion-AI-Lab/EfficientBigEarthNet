@@ -73,6 +73,8 @@ def run_model(args):
         args["batch_size"],
         args["shuffle_buffer_size"],
         args["label_type"],
+        args['num_workers'],
+        args['worker_index'],
     )
 
     val_batched_dataset = create_batched_dataset(
@@ -80,6 +82,8 @@ def run_model(args):
         args["batch_size"],
         args["shuffle_buffer_size"],
         args["label_type"],
+        args['num_workers'],
+        args['worker_index'],
     )
 
     # Create our model
@@ -95,7 +99,7 @@ def run_model(args):
     model = bigearth_model.model
 
     # DEBUG (use this to understand what the iterators are returning)
-    debug = True
+    debug = False
     if debug:
         single_batch = next(iter(train_batched_dataset))
         x_all = [
@@ -252,6 +256,11 @@ if __name__ == "__main__":
             tf.config.experimental.set_memory_growth(gpu, True)
         if gpus:
             tf.config.experimental.set_visible_devices(gpus[hvd.local_rank()], 'GPU')
+        args['num_workers'] = hvd.size()
+        args['worker_index'] = hvd.rank()
+    else:
+        args['num_workers'] = None
+        args['worker_index'] = None
 
     run_model(args)
 
