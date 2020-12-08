@@ -234,22 +234,16 @@ def run_model(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Training script")
-    parser.add_argument("--configs", required = False, default= '', help="json config file")
-    parser.add_argument("--parallel", required= False, default=False, help="Enable parallelism")
+    parser.add_argument("--configs", required=False, default='configs/base.json', help="JSON config file")
+    parser.add_argument("--parallel", required=False, default=False, help="Enable parallelism")
     parser_args = parser.parse_args()
 
-    if parser_args.configs == '':
-        parser_args.configs = 'configs/base.json'
-    with open("configs/base.json", "rb") as f:
+    with open(parser_args.configs, "rb") as f:
         args = json.load(f)
-
-    with open(os.path.realpath(parser_args.configs), "rb") as f:
-        model_args = json.load(f)
-        args.update(model_args)
+        args.update(vars(parser_args))
 
     if parser_args.parallel:
         import horovod.tensorflow as hvd
-        args['parallel'] = True
         hvd.init()
         gpus = tf.config.experimental.list_physical_devices('GPU')
         for gpu in gpus:
