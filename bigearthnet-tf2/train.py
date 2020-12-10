@@ -73,6 +73,8 @@ def run_model(args):
         args["batch_size"],
         args["shuffle_buffer_size"],
         args["label_type"],
+        args['num_workers'],
+        args['worker_index'],
     )
 
     val_batched_dataset = create_batched_dataset(
@@ -80,6 +82,8 @@ def run_model(args):
         args["batch_size"],
         args["shuffle_buffer_size"],
         args["label_type"],
+        args['num_workers'],
+        args['worker_index'],
     )
 
     # Create our model
@@ -95,7 +99,7 @@ def run_model(args):
     model = bigearth_model.model
 
     # DEBUG (use this to understand what the iterators are returning)
-    debug = True
+    debug = False
     if debug:
         single_batch = next(iter(train_batched_dataset))
         x_all = [
@@ -230,28 +234,27 @@ def run_model(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Training script")
-    parser.add_argument("--configs", required = False, default= '', help="json config file")
-    parser.add_argument("--parallel", required= False, default=False, help="Enable parallelism")
+    parser.add_argument("--configs", required=False, default='configs/base.json', help="JSON config file")
+    parser.add_argument("--parallel", required=False, default=False, help="Enable parallelism")
     parser_args = parser.parse_args()
 
-    if parser_args.configs == '':
-        parser_args.configs = 'configs/base.json'
-    with open("configs/base.json", "rb") as f:
+    with open(parser_args.configs, "rb") as f:
         args = json.load(f)
-
-    with open(os.path.realpath(parser_args.configs), "rb") as f:
-        model_args = json.load(f)
-        args.update(model_args)
+        args.update(vars(parser_args))
 
     if parser_args.parallel:
         import horovod.tensorflow as hvd
-        args['parallel'] = True
         hvd.init()
         gpus = tf.config.experimental.list_physical_devices('GPU')
         for gpu in gpus:
             tf.config.experimental.set_memory_growth(gpu, True)
         if gpus:
             tf.config.experimental.set_visible_devices(gpus[hvd.local_rank()], 'GPU')
+        args['num_workers'] = hvd.size()
+        args['worker_index'] = hvd.rank()
+    else:
+        args['num_workers'] = None
+        args['worker_index'] = None
 
     run_model(args)
 

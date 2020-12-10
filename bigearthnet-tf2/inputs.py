@@ -116,21 +116,24 @@ def _preprocess_function(example, label_type):
     return newexample
 
 
-def create_batched_dataset(
-    TFRecord_paths, batch_size, shuffle_buffer_size, label_type, num_parallel_calls=4
-):
+def create_batched_dataset(TFRecord_paths, batch_size, shuffle_buffer_size, label_type, num_workers, worker_index,
+                           num_parallel_calls=tf.data.experimental.AUTOTUNE):
     """Create an input batched dataset.
     """
     parse_fn = lambda x: _parse_function(x, label_type=label_type)
     preprocess_fn = lambda x: _preprocess_function(x, label_type=label_type)
 
-    dataset = tf.data.TFRecordDataset(TFRecord_paths)
+    # TODO: Split TFRecord into multiple TFRecords @prep_splits_BigEarthNet-19.py
+    dataset = tf.data.Dataset.list_files(TFRecord_paths)
+    if all([num_workers, worker_index]):
+        dataset = dataset.shard(num_workers, worker_index)
+    dataset = dataset.interleave(tf.data.TFRecordDataset, num_parallel_calls=num_parallel_calls)
     if shuffle_buffer_size > 0:
         dataset = dataset.shuffle(buffer_size=shuffle_buffer_size)
     dataset = dataset.map(parse_fn, num_parallel_calls=num_parallel_calls)
     dataset = dataset.map(preprocess_fn, num_parallel_calls=num_parallel_calls)
 
     dataset = dataset.batch(batch_size, drop_remainder=False)
-    batched_dataset = dataset.prefetch(10)
+    batched_dataset = dataset.prefetch(num_parallel_calls)
     return batched_dataset
 
