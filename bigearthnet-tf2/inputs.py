@@ -9,7 +9,7 @@
 
 import tensorflow as tf
 import numpy as np
-
+from glob import glob
 
 BAND_STATS = {
     "mean": {
@@ -124,6 +124,10 @@ def create_batched_dataset(TFRecord_paths, batch_size, shuffle_buffer_size, labe
     preprocess_fn = lambda x: _preprocess_function(x, label_type=label_type)
 
     # TODO: Split TFRecord into multiple TFRecords @prep_splits_BigEarthNet-19.py
+    records = []
+    for i in TFRecord_paths:
+        records.extend(glob(i))
+
     dataset = tf.data.Dataset.list_files(TFRecord_paths)
     if all([num_workers, worker_index]):
         dataset = dataset.shard(num_workers, worker_index)
