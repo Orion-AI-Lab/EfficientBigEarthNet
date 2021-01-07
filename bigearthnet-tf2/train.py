@@ -145,7 +145,7 @@ def run_model(args):
         return loss_value, tape.gradient(loss_value, model.trainable_variables)
 
     # Setup optimizer
-    optimizer = tf.keras.optimizers.Adam(learning_rate=args["learning_rate"])
+    optimizer = tf.keras.optimizers.Adam(learning_rate=args["learning_rate"]*args['num_workers'])
     if args['parallel']:
         # Add Horovod Distributed Optimizer
         optimizer = hvd.DistributedOptimizer(optimizer)
@@ -253,7 +253,7 @@ if __name__ == "__main__":
         args['num_workers'] = hvd.size()
         args['worker_index'] = hvd.rank()
     else:
-        args['num_workers'] = None
+        args['num_workers'] = 1
         args['worker_index'] = None
 
     run_model(args)
