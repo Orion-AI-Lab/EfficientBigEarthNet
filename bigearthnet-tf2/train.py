@@ -130,6 +130,7 @@ def run_model(args):
         return loss_object(y_true=y, y_pred=y_)
 
     # Setup gradients
+    @tf.function
     def grad(model, inputs, targets):
         with tf.GradientTape() as tape:
             loss_value = loss(model, inputs, targets, training=True)
