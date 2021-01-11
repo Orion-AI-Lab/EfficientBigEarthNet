@@ -138,6 +138,7 @@ def create_batched_dataset(TFRecord_paths, batch_size, shuffle_buffer_size, labe
     dataset = dataset.map(preprocess_fn, num_parallel_calls=num_parallel_calls)
 
     dataset = dataset.batch(batch_size, drop_remainder=False)
+
     batched_dataset = dataset.prefetch(num_parallel_calls)
     return batched_dataset
 

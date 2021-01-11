@@ -136,11 +136,16 @@ def run_model(args):
         if args['parallel']:
             # Horovod: add Horovod Distributed GradientTape.
             tape = hvd.DistributedGradientTape(tape)
+
+        grads = tape.gradient(loss_value, model.trainable_variables)
+        optimizer.apply_gradients(zip(grads, model.trainable_variables))
+
+        if args['parallel']:
             if first_batch:
                 hvd.broadcast_variables(model.variables, root_rank=0)
                 hvd.broadcast_variables(optimizer.variables(), root_rank=0)
 
-        return loss_value, tape.gradient(loss_value, model.trainable_variables)
+        return loss_value, grads
 
     # Setup optimizer
     optimizer = tf.keras.optimizers.Adam(learning_rate=args["learning_rate"] * args["num_workers"])
@@ -186,7 +191,6 @@ def run_model(args):
             # Optimize the model
             first_batch = (i == 0 and epoch == 0)
             loss_value, grads = grad(model, x_all, y, first_batch)
-            optimizer.apply_gradients(zip(grads, model.trainable_variables))
             # Track progress
             epoch_loss_avg.update_state(loss_value)  # Add current batch loss
             # Compare predicted label to actual label
@@ -256,3 +260,4 @@ if __name__ == "__main__":
         args['worker_index'] = None
 
     run_model(args)
+    hvd.join()
