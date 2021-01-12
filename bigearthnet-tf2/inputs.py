@@ -129,8 +129,7 @@ def create_batched_dataset(TFRecord_paths, batch_size, shuffle_buffer_size, labe
         records.extend(glob(i))
 
     dataset = tf.data.Dataset.list_files(TFRecord_paths)
-    if all([num_workers, worker_index]):
-        dataset = dataset.shard(num_workers, worker_index)
+    dataset = dataset.shard(num_workers, worker_index)
     dataset = dataset.interleave(tf.data.TFRecordDataset, num_parallel_calls=num_parallel_calls)
     if shuffle_buffer_size > 0:
         dataset = dataset.shuffle(buffer_size=shuffle_buffer_size)
@@ -141,4 +140,3 @@ def create_batched_dataset(TFRecord_paths, batch_size, shuffle_buffer_size, labe
 
     batched_dataset = dataset.prefetch(num_parallel_calls)
     return batched_dataset
-

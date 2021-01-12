@@ -234,7 +234,6 @@ def run_model(args):
                 )
             )
 
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Training script")
     parser.add_argument("--configs", required=False, default='configs/base.json', help="JSON config file")
@@ -257,7 +256,7 @@ if __name__ == "__main__":
         args['worker_index'] = hvd.rank()
     else:
         args['num_workers'] = 1
-        args['worker_index'] = None
+        args['worker_index'] = 0
 
     run_model(args)
     hvd.join()
