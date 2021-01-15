@@ -57,10 +57,6 @@ def run_model(args):
 
     print("Batch size: {}".format(args["batch_size"]))
     print("Epochs: {}".format(args["nb_epoch"]))
-    if args['parallel'] == False:
-        physical_devices = tf.config.experimental.list_physical_devices('GPU')
-        for d in physical_devices:
-            tf.config.experimental.set_memory_growth(d, True)
 
     rn.seed(SEED)
     np.random.seed(SEED)
@@ -122,17 +118,15 @@ def run_model(args):
         print(y_)
 
     # Create loss
-    loss_object = tf.keras.losses.BinaryCrossentropy()
+    loss = tf.keras.losses.BinaryCrossentropy()
 
-    def loss(model, x, y, training):
-        y_ = model(x, training=training)
-        return loss_object(y_true=y, y_pred=y_)
-
-    # Setup gradients
+    # Setup training step
     @tf.function
-    def grad(model, inputs, targets, first_batch):
+    def training_step(inputs, targets, first_batch):
         with tf.GradientTape() as tape:
-            loss_value = loss(model, inputs, targets, training=True)
+            y_pred = model(inputs, training=True)
+            loss_value = loss(y_true=targets, y_pred=y_pred)
+
         if args['parallel']:
             # Horovod: add Horovod Distributed GradientTape.
             tape = hvd.DistributedGradientTape(tape)
@@ -145,7 +139,7 @@ def run_model(args):
                 hvd.broadcast_variables(model.variables, root_rank=0)
                 hvd.broadcast_variables(optimizer.variables(), root_rank=0)
 
-        return loss_value, grads
+        return loss_value
 
     # Setup optimizer
     optimizer = tf.keras.optimizers.Adam(learning_rate=args["learning_rate"] * args["num_workers"])
@@ -190,7 +184,7 @@ def run_model(args):
 
             # Optimize the model
             first_batch = (i == 0 and epoch == 0)
-            loss_value, grads = grad(model, x_all, y, first_batch)
+            loss_value = training_step(x_all, y, first_batch)
             # Track progress
             epoch_loss_avg.update_state(loss_value)  # Add current batch loss
             # Compare predicted label to actual label
@@ -244,12 +238,13 @@ if __name__ == "__main__":
         args = json.load(f)
         args.update(vars(parser_args))
 
+    gpus = tf.config.experimental.list_physical_devices('GPU')
+    for d in gpus:
+        tf.config.experimental.set_memory_growth(d, True)
+
     if parser_args.parallel:
         import horovod.tensorflow as hvd
         hvd.init()
-        gpus = tf.config.experimental.list_physical_devices('GPU')
-        for gpu in gpus:
-            tf.config.experimental.set_memory_growth(gpu, True)
         if gpus:
             tf.config.experimental.set_visible_devices(gpus[hvd.local_rank()], 'GPU')
         args['num_workers'] = hvd.size()
@@ -259,4 +254,6 @@ if __name__ == "__main__":
         args['worker_index'] = 0
 
     run_model(args)
-    hvd.join()
+
+    if parser_args.parallel:
+        hvd.join()
