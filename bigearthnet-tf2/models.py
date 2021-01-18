@@ -30,7 +30,15 @@ MODELS_CLASS = {
     "KBranch": "DNN_model",
     "DenseNet121": "DenseNet121BigEarthModel",
     "DenseNet161": "DenseNet169BigEarthModel",
-    "DenseNet201": "DenseNet201BigEarthModel"
+    "DenseNet201": "DenseNet201BigEarthModel",
+    "EfficientNetB0": "EfficientNetB0",
+    "EfficientNetB1": "EfficientNetB1",
+    "EfficientNetB2": "EfficientNetB2",
+    "EfficientNetB3": "EfficientNetB3",
+    "EfficientNetB4": "EfficientNetB4",
+    "EfficientNetB5": "EfficientNetB5",
+    "EfficientNetB6": "EfficientNetB6",
+    "EfficientNetB7": "EfficientNetB7"
 }
 
 
@@ -252,6 +260,119 @@ class VGG19BigEarthModel(BigEarthModel):
             input_shape=(120, 120, num_bands),
             pooling='avg',
         )(allbands)
+
+        return x
+
+
+class EfficientNetB0(BigEarthModel):
+    def __init__(self, nb_class):
+        super().__init__(nb_class)
+
+    def _create_model_logits(self, allbands):
+
+        num_bands = self._num_bands
+        # Add VGG19
+        x = tf.keras.applications.EfficientNetB0(
+                include_top=False, weights=None,
+                input_shape=(120, 120, num_bands), pooling='avg')(allbands)
+
+        return x
+
+class EfficientNetB1(BigEarthModel):
+    def __init__(self, nb_class):
+        super().__init__(nb_class)
+
+    def _create_model_logits(self, allbands):
+
+        num_bands = self._num_bands
+        # Add VGG19
+        x = tf.keras.applications.EfficientNetB1(
+                include_top=False, weights=None,
+                input_shape=(120, 120, num_bands), pooling='avg')(allbands)
+
+        return x
+
+class EfficientNetB2(BigEarthModel):
+    def __init__(self, nb_class):
+        super().__init__(nb_class)
+
+    def _create_model_logits(self, allbands):
+
+        num_bands = self._num_bands
+        # Add VGG19
+        x = tf.keras.applications.EfficientNetB2(
+                include_top=False, weights=None,
+                input_shape=(120, 120, num_bands), pooling='avg')(allbands)
+
+        return x
+
+class EfficientNetB3(BigEarthModel):
+    def __init__(self, nb_class):
+        super().__init__(nb_class)
+
+    def _create_model_logits(self, allbands):
+
+        num_bands = self._num_bands
+        # Add VGG19
+        x = tf.keras.applications.EfficientNetB3(
+                include_top=False, weights=None,
+                input_shape=(120, 120, num_bands), pooling='avg')(allbands)
+
+        return x
+
+class EfficientNetB4(BigEarthModel):
+    def __init__(self, nb_class):
+        super().__init__(nb_class)
+
+    def _create_model_logits(self, allbands):
+
+        num_bands = self._num_bands
+        # Add VGG19
+        x = tf.keras.applications.EfficientNetB4(
+                include_top=False, weights=None,
+                input_shape=(120, 120, num_bands), pooling='avg')(allbands)
+
+        return x
+
+class EfficientNetB5(BigEarthModel):
+    def __init__(self, nb_class):
+        super().__init__(nb_class)
+
+    def _create_model_logits(self, allbands):
+
+        num_bands = self._num_bands
+        # Add VGG19
+        x = tf.keras.applications.EfficientNetB5(
+                include_top=False, weights=None,
+                input_shape=(120, 120, num_bands), pooling='avg')(allbands)
+
+        return x
+
+class EfficientNetB6(BigEarthModel):
+    def __init__(self, nb_class):
+        super().__init__(nb_class)
+
+    def _create_model_logits(self, allbands):
+
+        num_bands = self._num_bands
+        # Add VGG19
+        x = tf.keras.applications.EfficientNetB6(
+                include_top=False, weights=None,
+                input_shape=(120, 120, num_bands), pooling='avg')(allbands)
+
+        return x
+
+class EfficientNetB7(BigEarthModel):
+    def __init__(self, nb_class):
+        super().__init__(nb_class)
+
+    def _create_model_logits(self, allbands):
+
+        num_bands = self._num_bands
+        # Add VGG19
+        x = tf.keras.applications.EfficientNetB7(
+                include_top=False, weights=None,
+                input_shape=(120, 120, num_bands), pooling='avg')(allbands)
 
         return x
 
