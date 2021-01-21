@@ -10,6 +10,7 @@ import argparse
 import os
 import sys
 import json
+from datetime import datetime
 
 from inputs import create_batched_dataset
 from metrics import CustomMetrics
@@ -47,7 +48,28 @@ def evaluate_model(model, batched_dataset, nb_class):
         # Update all custom metrics
         custom_metrics.update_state(y, y_)
 
-    return custom_metrics.result()
+    return custom_metrics
+
+
+def _write_summary(summary_writer, custom_metrics, epoch): 
+    (
+        epoch_micro_precision,
+        epoch_macro_precision,
+        epoch_micro_recall,
+        epoch_macro_recall,
+        epoch_micro_accuracy,
+        epoch_macro_accuracy,
+        f_score
+    ) = custom_metrics
+
+    with summary_writer.as_default():
+        tf.summary.scalar('micro_precision', epoch_micro_precision, step=epoch) 
+        tf.summary.scalar('macro_precision', epoch_macro_precision, step=epoch)
+        tf.summary.scalar('micro_recall', epoch_micro_recall, step=epoch) 
+        tf.summary.scalar('macro_recall', epoch_macro_recall, step=epoch)
+        tf.summary.scalar('micro_accuracy', epoch_micro_accuracy, step=epoch) 
+        tf.summary.scalar('macro_accuracy', epoch_macro_accuracy, step=epoch)
+        tf.summary.scalar('f_score', f_score, step=epoch) 
 
 
 def run_model(args):
@@ -144,11 +166,11 @@ def run_model(args):
     # Setup optimizer
     optimizer = tf.keras.optimizers.Adam(learning_rate=args["learning_rate"] * args["num_workers"])
 
-    # Keep results for plotting
-    train_loss_results = []
-    train_accuracy_results = []
-    train_precision_results = []
-    train_recall_results = []
+    # Setup metrics logging
+    logdir = "logs/scalars/" + datetime.now().strftime("%Y%m%d-%H%M%S")
+    train_summary_writer = tf.summary.create_file_writer(os.path.join(logdir, 'train'))
+    train_summary_writer.set_as_default()
+    test_summary_writer = tf.summary.create_file_writer(os.path.join(logdir, 'test'))
 
     # The main loop
     batch_size = args["batch_size"]
@@ -195,7 +217,6 @@ def run_model(args):
             progress_bar.update(i + 1)
 
         # End epoch
-        train_loss_results.append(epoch_loss_avg.result())
         flag = False
         if args["parallel"]:
             if hvd.rank() == 0:
@@ -204,9 +225,14 @@ def run_model(args):
             flag = True
 
         if flag:
-            # if epoch>5:
-            print(" Epoch {:03d}: Loss: {:.3f}".format(epoch, epoch_loss_avg.result(), ))
+            tf.summary.scalar('loss', epoch_loss_avg.result(), step=epoch)
+            _write_summary(train_summary_writer, epoch_custom_metrics.result(), epoch)
+            print(" Epoch {:03d}: Loss: {:.3f}".format(epoch, epoch_loss_avg.result()))
+
             # Evaluate model using the eval dataset
+            evaluation = evaluate_model(model, val_batched_dataset, nb_class)
+            _write_summary(test_summary_writer, evaluation.result(), epoch)
+            
             (
                 epoch_micro_precision,
                 epoch_macro_precision,
@@ -215,7 +241,7 @@ def run_model(args):
                 epoch_micro_accuracy,
                 epoch_macro_accuracy,
                 f_score
-            ) = evaluate_model(model, val_batched_dataset, nb_class)
+            ) = evaluation.result()
 
             print(
                 "Epoch {:03d}: micro: accuracy: {:.3f}, precision: {:.3f}, recall: {:.3f}, F-score: {:.3f}".format(
