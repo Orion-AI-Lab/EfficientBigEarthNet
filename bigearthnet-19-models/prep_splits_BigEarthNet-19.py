@@ -40,6 +40,8 @@ if __name__ == "__main__":
                         'flag for adding BigEarthNet-19 labels to the json file of each patch')
     parser.add_argument('-n', '--splits', dest = 'splits', help = 
                         'csv files each of which contain list of patch names, patches with snow, clouds, and shadows already excluded', nargs = '+')
+    parser.add_argument('--tfrecord_num', type=int, dest = 'tfrecord_num', help = 
+                        'number of resulting TFRecords per split', default=1)
     parser.add_argument('-l', '--library', type=str, dest = 'library', help="Limit search to Sentinel mission", choices=['tensorflow', 'pytorch'])
 
     args = parser.parse_args()
@@ -104,6 +106,7 @@ if __name__ == "__main__":
             args.root_folder, 
             args.out_folder, 
             split_names, 
+            args.tfrecord_num,
             patch_names_list, 
             label_indices, 
             GDAL_EXISTED, 

@@ -46,6 +46,7 @@ def prep_example(bands, BigEarthNet_19_labels, BigEarthNet_19_labels_multi_hot, 
                 }))
     
 def create_split(root_folder, patch_names, TFRecord_writer, label_indices, GDAL_EXISTED, RASTERIO_EXISTED, UPDATE_JSON):
+    tfrecord_num = len(TFRecord_writer)
     label_conversion = label_indices['label_conversion']
     BigEarthNet_19_label_idx = {v: k for k, v in label_indices['BigEarthNet-19_labels'].items()}
     if GDAL_EXISTED:
@@ -53,7 +54,7 @@ def create_split(root_folder, patch_names, TFRecord_writer, label_indices, GDAL_
     elif RASTERIO_EXISTED:
         import rasterio
     print ('Total patches in split: {}'.format(len(patch_names)))
-    progress_bar = tf.contrib.keras.utils.Progbar(target = len(patch_names))
+    progress_bar = tf.keras.utils.Progbar(target = len(patch_names))
     for patch_idx, patch_name in enumerate(patch_names):
         patch_folder_path = os.path.join(root_folder, patch_name)
         bands = {}
@@ -119,18 +120,21 @@ def create_split(root_folder, patch_names, TFRecord_writer, label_indices, GDAL_
         )
        # print('Example is :',example)
        # print('Example Serialize is: ',example.SerializeToString())
-        TFRecord_writer.write(example.SerializeToString())
+        TFRecord_writer[patch_idx % tfrecord_num].write(example.SerializeToString())
         progress_bar.update(patch_idx)
 
-def prep_tf_record_files(root_folder, out_folder, split_names, patch_names_list, label_indices, GDAL_EXISTED, RASTERIO_EXISTED, UPDATE_JSON):
+def prep_tf_record_files(root_folder, out_folder, split_names, tfrecord_num, patch_names_list, label_indices, GDAL_EXISTED, RASTERIO_EXISTED, UPDATE_JSON):
     try:
         writer_list = []
         for split_name in split_names:
-            writer_list.append(
-                    tf.python_io.TFRecordWriter(os.path.join(
-                        out_folder, split_name + '.tfrecord'))
-                )
-    except:
+            writer_list.append([])
+            for num in range(tfrecord_num):
+                writer_list[-1].append(
+                        tf.io.TFRecordWriter(os.path.join(
+                            out_folder, split_name + '_{}.tfrecord'.format(str(num).zfill(2))))
+                    )
+    except Exception as e:
+        print(e)
         print('ERROR: TFRecord writer is not able to write files')
         exit()
 
@@ -145,4 +149,5 @@ def prep_tf_record_files(root_folder, out_folder, split_names, patch_names_list,
             RASTERIO_EXISTED, 
             UPDATE_JSON
             )
-        writer_list[split_idx].close()
+        for writer in writer_list[split_idx]:
+            writer.close()
