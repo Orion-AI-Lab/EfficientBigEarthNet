@@ -20,7 +20,7 @@ import models
 SEED = 42
 
 
-def evaluate_model(model, batched_dataset, nb_class,args):
+def evaluate_model(model, batched_dataset, nb_class, args):
     """Evaluate model using the eval dataset
     """
     print('Running model on validation dataset')
@@ -92,7 +92,7 @@ def _write_summary(summary_writer, custom_metrics, epoch):
 
 
 def run_model(args):
-    print("TensorFlow version: {}".format(tf.__version__))
+    print("\nTensorFlow version: {}".format(tf.__version__))
     print("Eager execution: {}".format(tf.executing_eagerly()))
     print("Running using random seed: {}".format(SEED))
 
@@ -232,19 +232,23 @@ def run_model(args):
             y_ = model(x_all, training=False)
             # Update all custom metrics
             epoch_custom_metrics.update_state(y, y_)
+            if i % 20 == 0:
+                # print('Process %d Epoch %d Iteration %d'%(args['worker_index'],epoch,i),flush=True)
+                print("\nProcess {:01d}:  Epoch {:03d}: Iteration {:03d} Loss: {:.3f}".format(args['worker_index'], epoch,
+                                                                                            i, loss_value.numpy()))
 
             progress_bar.update(i + 1)
 
         # End epoch
 
-        if epoch % 5 == 0:
+        if epoch % 5 == 0 or epoch == args['nb_epoch'] - 1:
             tf.summary.scalar('loss', epoch_loss_avg.result(), step=epoch)
             _write_summary(train_summary_writer, epoch_custom_metrics.result(), epoch)
             print("Process {:01d}:  Epoch {:03d}: Loss: {:.3f}".format(args['worker_index'], epoch,
                                                                        epoch_loss_avg.result()))
 
             # Evaluate model using the eval dataset
-            evaluation = evaluate_model(model, val_batched_dataset, nb_class,args)
+            evaluation = evaluate_model(model, val_batched_dataset, nb_class, args)
             _write_summary(test_summary_writer, evaluation, epoch)
 
             (
