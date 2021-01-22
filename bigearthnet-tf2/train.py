@@ -20,7 +20,7 @@ import models
 SEED = 42
 
 
-def evaluate_model(model, batched_dataset, nb_class):
+def evaluate_model(model, batched_dataset, nb_class,args):
     """Evaluate model using the eval dataset
     """
     print('Running model on validation dataset')
@@ -48,10 +48,29 @@ def evaluate_model(model, batched_dataset, nb_class):
         # Update all custom metrics
         custom_metrics.update_state(y, y_)
 
-    return custom_metrics
+    micro_precision, macro_precision, micro_recall, macro_recall, micro_accuracy, macro_accuracy, f_score = custom_metrics.result()
+
+    if args['parallel']:
+        micro_precision = hvd.allreduce(micro_precision)
+        macro_precision = hvd.allreduce(macro_precision)
+        micro_recall = hvd.allreduce(micro_recall)
+        macro_recall = hvd.allreduce(macro_recall)
+        micro_accuracy = hvd.allreduce(micro_accuracy)
+        macro_accuracy = hvd.allreduce(macro_accuracy)
+        f_score = hvd.allreduce(f_score)
+
+    return (
+        micro_precision,
+        macro_precision,
+        micro_recall,
+        macro_recall,
+        micro_accuracy,
+        macro_accuracy,
+        f_score
+    )
 
 
-def _write_summary(summary_writer, custom_metrics, epoch): 
+def _write_summary(summary_writer, custom_metrics, epoch):
     (
         epoch_micro_precision,
         epoch_macro_precision,
@@ -63,13 +82,13 @@ def _write_summary(summary_writer, custom_metrics, epoch):
     ) = custom_metrics
 
     with summary_writer.as_default():
-        tf.summary.scalar('micro_precision', epoch_micro_precision, step=epoch) 
+        tf.summary.scalar('micro_precision', epoch_micro_precision, step=epoch)
         tf.summary.scalar('macro_precision', epoch_macro_precision, step=epoch)
-        tf.summary.scalar('micro_recall', epoch_micro_recall, step=epoch) 
+        tf.summary.scalar('micro_recall', epoch_micro_recall, step=epoch)
         tf.summary.scalar('macro_recall', epoch_macro_recall, step=epoch)
-        tf.summary.scalar('micro_accuracy', epoch_micro_accuracy, step=epoch) 
+        tf.summary.scalar('micro_accuracy', epoch_micro_accuracy, step=epoch)
         tf.summary.scalar('macro_accuracy', epoch_macro_accuracy, step=epoch)
-        tf.summary.scalar('f_score', f_score, step=epoch) 
+        tf.summary.scalar('f_score', f_score, step=epoch)
 
 
 def run_model(args):
@@ -176,7 +195,7 @@ def run_model(args):
     batch_size = args["batch_size"]
     epoch_custom_metrics = CustomMetrics(nb_class=nb_class)
     for epoch in range(args["nb_epoch"]):
-        print("Starting epoch {}".format(epoch))
+        print("\nProcess {} : Starting epoch {}".format(args['worker_index'], epoch))
 
         epoch_loss_avg = tf.keras.metrics.Mean(dtype='float64')
         epoch_custom_metrics.reset_states()
@@ -217,22 +236,17 @@ def run_model(args):
             progress_bar.update(i + 1)
 
         # End epoch
-        flag = False
-        if args["parallel"]:
-            if hvd.rank() == 0:
-                flag = True
-        else:
-            flag = True
 
-        if flag:
+        if epoch % 5 == 0:
             tf.summary.scalar('loss', epoch_loss_avg.result(), step=epoch)
             _write_summary(train_summary_writer, epoch_custom_metrics.result(), epoch)
-            print(" Epoch {:03d}: Loss: {:.3f}".format(epoch, epoch_loss_avg.result()))
+            print("Process {:01d}:  Epoch {:03d}: Loss: {:.3f}".format(args['worker_index'], epoch,
+                                                                       epoch_loss_avg.result()))
 
             # Evaluate model using the eval dataset
-            evaluation = evaluate_model(model, val_batched_dataset, nb_class)
-            _write_summary(test_summary_writer, evaluation.result(), epoch)
-            
+            evaluation = evaluate_model(model, val_batched_dataset, nb_class,args)
+            _write_summary(test_summary_writer, evaluation, epoch)
+
             (
                 epoch_micro_precision,
                 epoch_macro_precision,
@@ -241,18 +255,19 @@ def run_model(args):
                 epoch_micro_accuracy,
                 epoch_macro_accuracy,
                 f_score
-            ) = evaluation.result()
+            ) = evaluation
+            if args['worker_index'] == 0:
+                print(
+                    "Epoch {:03d}: micro: accuracy: {:.3f}, precision: {:.3f}, recall: {:.3f}, F-score: {:.3f}".format(
+                        epoch, epoch_micro_accuracy, epoch_micro_precision, epoch_micro_recall, f_score
+                    )
+                )
+                print(
+                    "Epoch {:03d}: macro: accuracy: {:.3f}, precision: {:.3f}, recall: {:.3f}".format(
+                        epoch, epoch_macro_accuracy, epoch_macro_precision, epoch_macro_recall
+                    )
+                )
 
-            print(
-                "Epoch {:03d}: micro: accuracy: {:.3f}, precision: {:.3f}, recall: {:.3f}, F-score: {:.3f}".format(
-                    epoch, epoch_micro_accuracy, epoch_micro_precision, epoch_micro_recall, f_score
-                )
-            )
-            print(
-                "Epoch {:03d}: macro: accuracy: {:.3f}, precision: {:.3f}, recall: {:.3f}".format(
-                    epoch, epoch_macro_accuracy, epoch_macro_precision, epoch_macro_recall
-                )
-            )
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Training script")
