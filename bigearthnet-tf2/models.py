@@ -150,7 +150,7 @@ class DenseNet121BigEarthModel(BigEarthModel):
 
         num_bands = self._num_bands
         x = tf.keras.applications.DenseNet121(
-            include_top=False, weights=None, input_shape=(120,120,num_bands))(allbands)
+            include_top=False, weights=None, input_shape=(120,120,num_bands),pooling='avg')(allbands)
 
         return x
 
@@ -162,7 +162,7 @@ class DenseNet169BigEarthModel(BigEarthModel):
 
         num_bands = self._num_bands
         x = tf.keras.applications.DenseNet169(
-            include_top=False, weights=None, input_shape=(120,120,num_bands))(allbands)
+            include_top=False, weights=None, input_shape=(120,120,num_bands),pooling='avg')(allbands)
 
         return x
 
@@ -175,7 +175,7 @@ class DenseNet201BigEarthModel(BigEarthModel):
 
         num_bands = self._num_bands
         x = tf.keras.applications.DenseNet201(
-            include_top=False, weights=None, input_shape=(120,120,num_bands))(allbands)
+            include_top=False, weights=None, input_shape=(120,120,num_bands), pooling='avg')(allbands)
 
         return x
 
