@@ -49,8 +49,11 @@ def evaluate_model(model, batched_dataset, nb_class, args):
         custom_metrics.update_state(y, y_)
 
     micro_precision, macro_precision, micro_recall, macro_recall, micro_accuracy, macro_accuracy, f_score = custom_metrics.result()
-
+    import datetime
+    now = datetime.datetime.now()
     if args['parallel']:
+        print('Time : ' + str(now) + ' Process %d Reduce ' % hvd.rank(), flush=True)
+        hvd.join()
         micro_precision = hvd.allreduce(micro_precision)
         macro_precision = hvd.allreduce(macro_precision)
         micro_recall = hvd.allreduce(micro_recall)
@@ -92,7 +95,7 @@ def _write_summary(summary_writer, custom_metrics, epoch):
 
 
 def run_model(args):
-    print("\nTensorFlow version: {}".format(tf.__version__))
+    print("TensorFlow version: {}".format(tf.__version__))
     print("Eager execution: {}".format(tf.executing_eagerly()))
     print("Running using random seed: {}".format(SEED))
 
@@ -184,18 +187,22 @@ def run_model(args):
 
     # Setup optimizer
     optimizer = tf.keras.optimizers.Adam(learning_rate=args["learning_rate"] * args["num_workers"])
-
+    # if args['num_workers']>2:
+    #   optimizer = hvd.DistributedOptimizer(optimizer, backward_passes_per_step=18)
     # Setup metrics logging
     logdir = "logs/scalars/" + datetime.now().strftime("%Y%m%d-%H%M%S")
     train_summary_writer = tf.summary.create_file_writer(os.path.join(logdir, 'train'))
     train_summary_writer.set_as_default()
     test_summary_writer = tf.summary.create_file_writer(os.path.join(logdir, 'test'))
-
+    checkpoint_dir = './checkpoint_' + args['model_name'] + '/checkpoints'
+    checkpoint = tf.train.Checkpoint(model=model, optimizer=optimizer)
     # The main loop
     batch_size = args["batch_size"]
     epoch_custom_metrics = CustomMetrics(nb_class=nb_class)
+
     for epoch in range(args["nb_epoch"]):
-        print("\nProcess {} : Starting epoch {}".format(args['worker_index'], epoch))
+
+        print("\nProcess {} : Starting epoch {} ".format(args['worker_index'], epoch))
 
         epoch_loss_avg = tf.keras.metrics.Mean(dtype='float64')
         epoch_custom_metrics.reset_states()
@@ -234,21 +241,22 @@ def run_model(args):
             epoch_custom_metrics.update_state(y, y_)
             if i % 20 == 0:
                 # print('Process %d Epoch %d Iteration %d'%(args['worker_index'],epoch,i),flush=True)
-                print("\nProcess {:01d}:  Epoch {:03d}: Iteration {:03d} Loss: {:.3f}".format(args['worker_index'], epoch,
+                print("Process {:01d}:  Epoch {:03d}: Iteration {:03d} Loss: {:.3f}".format(args['worker_index'], epoch,
                                                                                             i, loss_value.numpy()))
 
             progress_bar.update(i + 1)
 
         # End epoch
 
-        if epoch % 5 == 0 or epoch == args['nb_epoch'] - 1:
+        if epoch % 10 == 0 or epoch == args['nb_epoch'] - 1:
             tf.summary.scalar('loss', epoch_loss_avg.result(), step=epoch)
             _write_summary(train_summary_writer, epoch_custom_metrics.result(), epoch)
-            print("Process {:01d}:  Epoch {:03d}: Loss: {:.3f}".format(args['worker_index'], epoch,
-                                                                       epoch_loss_avg.result()))
+            print("Process {:01d}:  Epoch : {:03d}: Loss: {:.3f}".format(args['worker_index'], epoch,
+                                                                         epoch_loss_avg.result()))
 
             # Evaluate model using the eval dataset
             evaluation = evaluate_model(model, val_batched_dataset, nb_class, args)
+
             _write_summary(test_summary_writer, evaluation, epoch)
 
             (
@@ -261,6 +269,8 @@ def run_model(args):
                 f_score
             ) = evaluation
             if args['worker_index'] == 0:
+                print("Process {:01d}:  Epoch : {:03d} Writing Checkpoint".format(args['worker_index'], epoch))
+                checkpoint.save(checkpoint_dir)
                 print(
                     "Epoch {:03d}: micro: accuracy: {:.3f}, precision: {:.3f}, recall: {:.3f}, F-score: {:.3f}".format(
                         epoch, epoch_micro_accuracy, epoch_micro_precision, epoch_micro_recall, f_score
