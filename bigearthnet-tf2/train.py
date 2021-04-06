@@ -11,7 +11,7 @@ import os
 import sys
 import json
 from datetime import datetime
-
+# import datetime
 from inputs import create_batched_dataset
 from metrics import CustomMetrics
 from models import MODELS_CLASS
@@ -188,7 +188,7 @@ def run_model(args):
     # Setup optimizer
     optimizer = tf.keras.optimizers.Adam(learning_rate=args["learning_rate"] * args["num_workers"])
     # if args['num_workers']>2:
-    #   optimizer = hvd.DistributedOptimizer(optimizer, backward_passes_per_step=18)
+    #   optimizer = hvd.DistributedOptimizer(optimizer, backward_passes_per_step=4)
     # Setup metrics logging
     logdir = "logs/scalars/" + datetime.now().strftime("%Y%m%d-%H%M%S")
     train_summary_writer = tf.summary.create_file_writer(os.path.join(logdir, 'train'))
@@ -199,7 +199,7 @@ def run_model(args):
     # The main loop
     batch_size = args["batch_size"]
     epoch_custom_metrics = CustomMetrics(nb_class=nb_class)
-
+    bestfscore = 0
     for epoch in range(args["nb_epoch"]):
 
         print("\nProcess {} : Starting epoch {} ".format(args['worker_index'], epoch))
@@ -239,11 +239,17 @@ def run_model(args):
             y_ = model(x_all, training=False)
             # Update all custom metrics
             epoch_custom_metrics.update_state(y, y_)
-            if i % 20 == 0:
+            if i % 20 == 0 and args['worker_index'] == 0:
                 # print('Process %d Epoch %d Iteration %d'%(args['worker_index'],epoch,i),flush=True)
                 print("Process {:01d}:  Epoch {:03d}: Iteration {:03d} Loss: {:.3f}".format(args['worker_index'], epoch,
                                                                                             i, loss_value.numpy()))
-
+            # if args['parallel']:
+            #   if args['num_workers']>2:
+            #        if i%420==0:
+            #           import datetime as dt
+            #           now = dt.datetime.now()
+            #           print('Time : ' +str(now) + ' Process %d Joining ' %hvd.rank(),flush = True)
+            #           hvd.join()
             progress_bar.update(i + 1)
 
         # End epoch
@@ -268,7 +274,10 @@ def run_model(args):
                 epoch_macro_accuracy,
                 f_score
             ) = evaluation
-            if args['worker_index'] == 0:
+            if args['worker_index'] == 0 and f_score > bestfscore:
+                bestfscore = f_score
+                print("Process {:01d}: New Best F-Score : ", bestfscore,
+                      "  Epoch : {:03d} Writing Checkpoint".format(args['worker_index'], epoch))
                 print("Process {:01d}:  Epoch : {:03d} Writing Checkpoint".format(args['worker_index'], epoch))
                 checkpoint.save(checkpoint_dir)
                 print(
@@ -299,6 +308,7 @@ if __name__ == "__main__":
 
     if parser_args.parallel:
         import horovod.tensorflow as hvd
+
         hvd.init()
         if gpus:
             tf.config.experimental.set_visible_devices(gpus[hvd.local_rank()], 'GPU')
