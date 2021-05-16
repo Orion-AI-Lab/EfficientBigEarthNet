@@ -219,7 +219,7 @@ def run_model(args):
     if args['worker_index'] == 0:
         start = time.time()
     for epoch in range(args["nb_epoch"]):
-
+        epoch_time = time.time()
         print("\nProcess {} : Starting epoch {} ".format(args['worker_index'], epoch))
 
         epoch_loss_avg = tf.keras.metrics.Mean(dtype='float64')
@@ -317,14 +317,15 @@ def run_model(args):
                 )
             if args['worker_index'] == 0:
                 eval_end = time.time()
-                start = start - (eval_end - eval_start)
+                eval_time = eval_end - eval_start
+                start = start + eval_time
                 current = time.time()
-                elapsed_time = current - start
-                print('Training time in Seconds : ',elapsed_time)
-                print('Evaluation time in Seconds: ' , (eval_end - eval_start))
+                train_time = current - start
+                print('Training time in Seconds : ',train_time)
+                print('Evaluation time in Seconds: ' , eval_time)
                 #print(
                 #    'Process : {01d}: Epoch : {03d}: Elapsed Training Time : {:.6f} in Minutes, Elapsed Eval Time in Minutes'.format(
-                #        args['worker_index'], epoch, elapsed_time / 60, (eval_end - eval_start) / 60))
+                #        args['worker_index'], epoch,  / 60, (eval_end - eval_start) / 60))
 
 
 if __name__ == "__main__":
