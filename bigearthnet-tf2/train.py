@@ -16,7 +16,6 @@ from inputs import create_batched_dataset
 from metrics import CustomMetrics
 from models import MODELS_CLASS
 import models
-
 SEED = 42
 
 
@@ -156,7 +155,7 @@ def run_model(args):
             single_batch["B12"],
         ]
         y = single_batch[args["label_type"] + "_labels_multi_hot"]
-        y_ = model(x_all, training=True)
+        y_ = model(x_all, training=False)
         # print(x_all)
         print(y)
         print(y_)
@@ -186,9 +185,23 @@ def run_model(args):
         return loss_value
 
     # Setup optimizer
-    optimizer = tf.keras.optimizers.Adam(learning_rate=args["learning_rate"] * args["num_workers"])
-    # if args['num_workers']>2:
-    #   optimizer = hvd.DistributedOptimizer(optimizer, backward_passes_per_step=4)
+    step_epochs = args['decay_step']
+    nb_iterations_per_epoch = (args["training_size"]/args['num_workers']) / args["batch_size"]
+    #if (args["training_size"]/args['num_workers']) % args["batch_size"] != 0:
+    #        nb_iterations_per_epoch += 1
+    decay_step = int(step_epochs*nb_iterations_per_epoch)
+    back_passes = args['backward_passes']
+    decay_rate = args['decay_rate']
+    print('decay step : ' , decay_step)
+    print('Back passes : ',back_passes)
+    print('Decay rate : ',decay_rate)
+    #learning_rate = args['learning_rate'] * args['num_workers']
+    learning_rate = tf.keras.optimizers.schedules.ExponentialDecay(
+        initial_learning_rate=args['learning_rate']*args['num_workers'], decay_steps=decay_step, decay_rate=decay_rate)
+
+    optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)#args["learning_rate"] * args["num_workers"])
+    if args['num_workers']>2:
+       optimizer = hvd.DistributedOptimizer(optimizer, backward_passes_per_step=back_passes)
     # Setup metrics logging
     logdir = "logs/scalars/" + datetime.now().strftime("%Y%m%d-%H%M%S")
     train_summary_writer = tf.summary.create_file_writer(os.path.join(logdir, 'train'))
@@ -207,9 +220,11 @@ def run_model(args):
         epoch_loss_avg = tf.keras.metrics.Mean(dtype='float64')
         epoch_custom_metrics.reset_states()
 
-        nb_iterations = args["training_size"] / args["batch_size"]
-        if args["training_size"] % args["batch_size"] != 0:
+        nb_iterations = (args["training_size"]/args['num_workers']) / args["batch_size"]
+        if (args["training_size"]/args['num_workers']) % args["batch_size"] != 0:
             nb_iterations += 1
+
+        #if args["worker_index"]==0:
         progress_bar = tf.keras.utils.Progbar(target=nb_iterations)
 
         batch_iterator = iter(train_batched_dataset)
@@ -243,6 +258,7 @@ def run_model(args):
                 # print('Process %d Epoch %d Iteration %d'%(args['worker_index'],epoch,i),flush=True)
                 print("Process {:01d}:  Epoch {:03d}: Iteration {:03d} Loss: {:.3f}".format(args['worker_index'], epoch,
                                                                                             i, loss_value.numpy()))
+                #print('Learning rate : ',learning_rate)
             # if args['parallel']:
             #   if args['num_workers']>2:
             #        if i%420==0:
@@ -250,6 +266,8 @@ def run_model(args):
             #           now = dt.datetime.now()
             #           print('Time : ' +str(now) + ' Process %d Joining ' %hvd.rank(),flush = True)
             #           hvd.join()
+            #if args["worker_index"]==0:
+            #print('Process : ', args['worker_index'], ' , Update progress bar : ',i+1, flush=True)
             progress_bar.update(i + 1)
 
         # End epoch

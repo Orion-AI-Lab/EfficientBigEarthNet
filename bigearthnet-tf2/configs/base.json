@@ -1,18 +1,20 @@
 {
-    "model_name": "ResNet50",
-    "batch_size":1000,
-    "nb_epoch":100,
+    "model_name": "DenseNet152",
+    "batch_size": 50,
+    "nb_epoch":30,
     "learning_rate":1e-3,
     "save_checkpoint_after_iteration": 0,
     "save_checkpoint_per_iteration": 1,
-    "tr_tf_record_files": ["TFRecord_files/train.tfrecord"], 
-    "val_tf_record_files": ["TFRecord_files/val.tfrecord"], 
-    "test_tf_record_files": ["TFRecord_files/test.tfrecord"],  
+    "tr_tf_record_files": ["/work2/pa20/ipapout/gitSpace/TF1.10.1gpu_Py3/NikosTmp/v2/bigearthnet-noa-hua/bigearthnet-tf2/fulldataset/split-10nodes-fulldataset/train*.tfrecord"],
+    "val_tf_record_files": ["/work2/pa20/ipapout/gitSpace/TF1.10.1gpu_Py3/NikosTmp/v2/bigearthnet-noa-hua/bigearthnet-tf2/fulldataset/split-10nodes-fulldataset/val*.tfrecord"],
+    "test_tf_record_files": ["/work2/pa20/ipapout/gitSpace/TF1.10.1gpu_Py3/NikosTmp/v2/bigearthnet-noa-hua/bigearthnet-tf2/fulldataset/split-10nodes-fulldataset/test*.tfrecord"],
     "label_type": "BigEarthNet-19",
     "fine_tune": false,
-    "shuffle_buffer_size": 130000,
+    "shuffle_buffer_size": 5000,
     "training_size": 269695,
     "val_size": 125866,
-    "test_size": 125866
+    "test_size": 125866,
+    "decay_rate":0.1,
+    "backward_passes":4,
+    "decay_step":20
 }
-
