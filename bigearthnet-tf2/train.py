@@ -10,12 +10,14 @@ import argparse
 import os
 import sys
 import json
+import time
 from datetime import datetime
 # import datetime
 from inputs import create_batched_dataset
 from metrics import CustomMetrics
 from models import MODELS_CLASS
 import models
+
 SEED = 42
 
 
@@ -186,22 +188,23 @@ def run_model(args):
 
     # Setup optimizer
     step_epochs = args['decay_step']
-    nb_iterations_per_epoch = (args["training_size"]/args['num_workers']) / args["batch_size"]
-    #if (args["training_size"]/args['num_workers']) % args["batch_size"] != 0:
+    nb_iterations_per_epoch = (args["training_size"] / args['num_workers']) / args["batch_size"]
+    # if (args["training_size"]/args['num_workers']) % args["batch_size"] != 0:
     #        nb_iterations_per_epoch += 1
-    decay_step = int(step_epochs*nb_iterations_per_epoch)
+    decay_step = int(step_epochs * nb_iterations_per_epoch)
     back_passes = args['backward_passes']
     decay_rate = args['decay_rate']
-    print('decay step : ' , decay_step)
-    print('Back passes : ',back_passes)
-    print('Decay rate : ',decay_rate)
-    #learning_rate = args['learning_rate'] * args['num_workers']
+    print('decay step : ', decay_step)
+    print('Back passes : ', back_passes)
+    print('Decay rate : ', decay_rate)
+    # learning_rate = args['learning_rate'] * args['num_workers']
     learning_rate = tf.keras.optimizers.schedules.ExponentialDecay(
-        initial_learning_rate=args['learning_rate']*args['num_workers'], decay_steps=decay_step, decay_rate=decay_rate)
+        initial_learning_rate=args['learning_rate'] * args['num_workers'], decay_steps=decay_step,
+        decay_rate=decay_rate)
 
-    optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)#args["learning_rate"] * args["num_workers"])
-    if args['num_workers']>2:
-       optimizer = hvd.DistributedOptimizer(optimizer, backward_passes_per_step=back_passes)
+    optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)  # args["learning_rate"] * args["num_workers"])
+    if args['num_workers'] > 2:
+        optimizer = hvd.DistributedOptimizer(optimizer, backward_passes_per_step=back_passes)
     # Setup metrics logging
     logdir = "logs/scalars/" + datetime.now().strftime("%Y%m%d-%H%M%S")
     train_summary_writer = tf.summary.create_file_writer(os.path.join(logdir, 'train'))
@@ -213,6 +216,8 @@ def run_model(args):
     batch_size = args["batch_size"]
     epoch_custom_metrics = CustomMetrics(nb_class=nb_class)
     bestfscore = 0
+    if args['worker_index'] == 0:
+        start = time.time()
     for epoch in range(args["nb_epoch"]):
 
         print("\nProcess {} : Starting epoch {} ".format(args['worker_index'], epoch))
@@ -220,11 +225,11 @@ def run_model(args):
         epoch_loss_avg = tf.keras.metrics.Mean(dtype='float64')
         epoch_custom_metrics.reset_states()
 
-        nb_iterations = (args["training_size"]/args['num_workers']) / args["batch_size"]
-        if (args["training_size"]/args['num_workers']) % args["batch_size"] != 0:
+        nb_iterations = (args["training_size"] / args['num_workers']) / args["batch_size"]
+        if (args["training_size"] / args['num_workers']) % args["batch_size"] != 0:
             nb_iterations += 1
 
-        #if args["worker_index"]==0:
+        # if args["worker_index"]==0:
         progress_bar = tf.keras.utils.Progbar(target=nb_iterations)
 
         batch_iterator = iter(train_batched_dataset)
@@ -258,7 +263,7 @@ def run_model(args):
                 # print('Process %d Epoch %d Iteration %d'%(args['worker_index'],epoch,i),flush=True)
                 print("Process {:01d}:  Epoch {:03d}: Iteration {:03d} Loss: {:.3f}".format(args['worker_index'], epoch,
                                                                                             i, loss_value.numpy()))
-                #print('Learning rate : ',learning_rate)
+                # print('Learning rate : ',learning_rate)
             # if args['parallel']:
             #   if args['num_workers']>2:
             #        if i%420==0:
@@ -266,18 +271,20 @@ def run_model(args):
             #           now = dt.datetime.now()
             #           print('Time : ' +str(now) + ' Process %d Joining ' %hvd.rank(),flush = True)
             #           hvd.join()
-            #if args["worker_index"]==0:
-            #print('Process : ', args['worker_index'], ' , Update progress bar : ',i+1, flush=True)
+            # if args["worker_index"]==0:
+            # print('Process : ', args['worker_index'], ' , Update progress bar : ',i+1, flush=True)
             progress_bar.update(i + 1)
 
         # End epoch
 
         if epoch % 10 == 0 or epoch == args['nb_epoch'] - 1:
+            if args['worker_index'] == 0:
+                eval_start = time.time()
+
             tf.summary.scalar('loss', epoch_loss_avg.result(), step=epoch)
             _write_summary(train_summary_writer, epoch_custom_metrics.result(), epoch)
             print("Process {:01d}:  Epoch : {:03d}: Loss: {:.3f}".format(args['worker_index'], epoch,
                                                                          epoch_loss_avg.result()))
-
             # Evaluate model using the eval dataset
             evaluation = evaluate_model(model, val_batched_dataset, nb_class, args)
 
@@ -308,6 +315,16 @@ def run_model(args):
                         epoch, epoch_macro_accuracy, epoch_macro_precision, epoch_macro_recall
                     )
                 )
+            if args['worker_index'] == 0:
+                eval_end = time.time()
+                start = start - (eval_end - eval_start)
+                current = time.time()
+                elapsed_time = current - start
+                print('Training time in Seconds : ',elapsed_time)
+                print('Evaluation time in Seconds: ' , (eval_end - eval_start))
+                #print(
+                #    'Process : {01d}: Epoch : {03d}: Elapsed Training Time : {:.6f} in Minutes, Elapsed Eval Time in Minutes'.format(
+                #        args['worker_index'], epoch, elapsed_time / 60, (eval_end - eval_start) / 60))
 
 
 if __name__ == "__main__":
