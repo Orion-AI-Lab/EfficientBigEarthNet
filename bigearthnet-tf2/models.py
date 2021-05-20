@@ -7,8 +7,7 @@ import numpy as np
 import tensorflow as tf
 import math
 import six
-from tensorflow.keras.layers import Input, Add, Dense, Flatten, Activation, Lambda, Conv2D
-from tensorflow.keras.layers import Layer
+from tensorflow.keras.layers import  GlobalAveragePooling1D, LayerNormalization, Permute,Layer, Input, Add, Dense, Flatten, Activation, Lambda, Conv2D, BatchNormalization, Conv3D, ZeroPadding3D, Softmax,  Layer
 from tensorflow.keras.models import Model
 from tensorflow.keras import backend as K
 from tensorflow.keras import layers
@@ -17,7 +16,9 @@ from einops.layers.tensorflow import Rearrange
 from tensorflow.python.ops import nn
 import tensorflow_addons as tfa
 from tensorflow.keras.layers.experimental.preprocessing import Rescaling
-
+from tensorflow.keras import initializers
+from tensorflow import einsum, nn, meshgrid
+from einops import rearrange
 from inputs import BAND_STATS
 
 SEED = 42
@@ -43,7 +44,9 @@ MODELS_CLASS = {
     "EfficientNetB5": "EfficientNetB5",
     "EfficientNetB6": "EfficientNetB6",
     "EfficientNetB7": "EfficientNetB7",
-    "ViT":"ViT"
+    "ViT":"ViT",
+    'Lambda':"LambdaResNet",
+    'MLPMixer': 'Mixer',
 }
 
 
@@ -864,153 +867,379 @@ class ViT(BigEarthModel):
 
 
 
-'''
-from tensorflow.keras.layers import (
-    Dense,
-    Dropout,
-    LayerNormalization,
-)
-from tensorflow.keras.layers.experimental.preprocessing import Rescaling
+# lambda layer
+
+class LambdaLayer(Layer):
+
+  def __init__(self, *, dim_k, n = None, r = None, heads = 4, dim_out = None, dim_u = 1):
+    super(LambdaLayer, self).__init__()
+
+    self.u = dim_u
+    self.heads = heads
+
+    assert (dim_out % heads) == 0
+    dim_v = dim_out // heads
+
+    self.to_q = Conv2D(filters = dim_k * heads, kernel_size = (1, 1), use_bias=False)
+    self.to_k = Conv2D(filters = dim_k * dim_u, kernel_size = (1, 1), use_bias=False)
+    self.to_v = Conv2D(filters = dim_v * dim_u, kernel_size = (1, 1), use_bias=False)
+
+    self.norm_q = BatchNormalization()
+    self.norm_v = BatchNormalization()
+
+    self.local_contexts = r is not None
+
+    if self.local_contexts:
+      assert (r % 2) == 1, 'Receptive kernel size should be odd.'
+      self.pad_fn = lambda x: tf.pad(x, tf.constant([[0, 0], [r // 2, r // 2], [r // 2, r // 2], [0, 0]]))
+      self.pos_conv = Conv3D(filters = dim_k, kernel_size = (1, r, r))
+      self.flatten = tf.keras.layers.Flatten()
+    else:
+      assert n is not None, 'You must specify the total sequence length (h x w)'
+      self.pos_emb = self.add_weight(name='position_embed', shape=(n, n, dim_k, dim_u))
+
+  def call(self, x):
+    # For verbosity and understandings sake
+    batch_size, height, width, channels, u, heads = *x.shape, self.u, self.heads
+    b, hh, ww, c, u, h = batch_size, height, width, channels, u, heads
+
+    q = self.to_q(x)
+    k = self.to_k(x)
+    v = self.to_v(x)
+
+    q = self.norm_q(q)
+    v = self.norm_v(v)
+
+    q = rearrange(q, 'b hh ww (h k) -> b h (hh ww) k', h = h)
+    k = rearrange(k, 'b hh ww (k u) -> b u (hh ww) k', u = u)
+    v = rearrange(v, 'b hh ww (v u) -> b u (hh ww) v', u = u)
+
+    k = tf.nn.softmax(k, axis=-1)
+
+    lambda_c = einsum('b u m k, b u m v -> b k v', k, v)
+    Y_c = einsum('b h n k, b k v -> b n h v', q, lambda_c)
+
+    if self.local_contexts:
+      v = rearrange(v, 'b u (hh ww) v -> b v hh ww u', hh = hh, ww = ww)
+      # We need to add explicit padding across the batch dimension
+      lambda_p = tf.map_fn(self.pad_fn, v)
+      lambda_p = self.pos_conv(lambda_p)
+      lambda_p = tf.reshape(lambda_p, (lambda_p.shape[0], lambda_p.shape[1], lambda_p.shape[2] * lambda_p.shape[3], lambda_p.shape[4]))
+      Y_p = einsum('b h n k, b v n k -> b n h v', q, lambda_p)
+    else:
+      lambda_p = einsum('n m k u, b u m v -> b n k v', self.pos_emb, v)
+      Y_p = einsum('b h n k, b n k v -> b n h v', q, lambda_p)
+
+    Y = Y_c + Y_p
+    out = rearrange(Y, 'b (hh ww) h v -> b hh ww (h v)', hh = hh, ww = ww)
+
+    return out
 
 
-class MultiHeadSelfAttention(tf.keras.layers.Layer):
-    def __init__(self, embed_dim, num_heads=8):
-        super(MultiHeadSelfAttention, self).__init__()
-        self.embed_dim = embed_dim
-        self.num_heads = num_heads
-        if embed_dim % num_heads != 0:
-            raise ValueError(
-                f"embedding dimension = {embed_dim} should be divisible by number of heads = {num_heads}"
-            )
-        self.projection_dim = embed_dim // num_heads
-        self.query_dense = Dense(embed_dim)
-        self.key_dense = Dense(embed_dim)
-        self.value_dense = Dense(embed_dim)
-        self.combine_heads = Dense(embed_dim)
+class LambdaConv(Layer):
 
-    def attention(self, query, key, value):
-        score = tf.matmul(query, key, transpose_b=True)
-        dim_key = tf.cast(tf.shape(key)[-1], tf.float32)
-        scaled_score = score / tf.math.sqrt(dim_key)
-        weights = tf.nn.softmax(scaled_score, axis=-1)
-        output = tf.matmul(weights, value)
-        return output, weights
+  def __init__(self, channels_out, *, receptive_field = None, key_dim = 16, intra_depth_dim = 1, heads = 4):
+    super(LambdaConv, self).__init__()
+    self.channels_out = channels_out
+    self.receptive_field = receptive_field
+    self.key_dim = key_dim
+    self.intra_depth_dim = intra_depth_dim
+    self.heads = heads
 
-    def separate_heads(self, x, batch_size):
-        x = tf.reshape(
-            x, (batch_size, -1, self.num_heads, self.projection_dim)
-        )
-        return tf.transpose(x, perm=[0, 2, 1, 3])
+  def build(self, input_shape):
+    self.layer = LambdaLayer(dim_out = self.channels_out, dim_k = self.key_dim, n = input_shape[1] * input_shape[2])
 
-    def call(self, inputs):
-        batch_size = tf.shape(inputs)[0]
-        query = self.query_dense(inputs)
-        key = self.key_dense(inputs)
-        value = self.value_dense(inputs)
-        query = self.separate_heads(query, batch_size)
-        key = self.separate_heads(key, batch_size)
-        value = self.separate_heads(value, batch_size)
-
-        attention, weights = self.attention(query, key, value)
-        attention = tf.transpose(attention, perm=[0, 2, 1, 3])
-        concat_attention = tf.reshape(
-            attention, (batch_size, -1, self.embed_dim)
-        )
-        output = self.combine_heads(concat_attention)
-        return output
+  def call(self, x):
+    return self.layer(x)
 
 
-class TransformerBlock(tf.keras.layers.Layer):
-    def __init__(self, embed_dim, num_heads, ff_dim, dropout=0.1):
-        super(TransformerBlock, self).__init__()
-        self.att = MultiHeadSelfAttention(embed_dim, num_heads)
-        self.ffn = tf.keras.Sequential(
-            [Dense(ff_dim, activation="relu"), Dense(embed_dim),]
-        )
-        self.layernorm1 = LayerNormalization(epsilon=1e-6)
-        self.layernorm2 = LayerNormalization(epsilon=1e-6)
-        self.dropout1 = Dropout(dropout)
-        self.dropout2 = Dropout(dropout)
-
-    def call(self, inputs, training):
-        attn_output = self.att(inputs)
-        attn_output = self.dropout1(attn_output, training=training)
-        out1 = self.layernorm1(inputs + attn_output)
-        ffn_output = self.ffn(out1)
-        ffn_output = self.dropout2(ffn_output, training=training)
-        return self.layernorm2(out1 + ffn_output)
-
-
-class ViT(BigEarthModel):
+class LambdaResNet(BigEarthModel):
     def __init__(self, nb_class):
         super().__init__(nb_class)
 
     def _create_model_logits(self, allbands):
 
-        image_size = 120
-        patch_size = 6
-        num_layers = 8
+        def initial_conv(input):
+            x = tf.keras.layers.Conv2D(16, (3, 3), padding='same', kernel_initializer='he_normal',
+                                       kernel_regularizer=tf.keras.regularizers.l2(weight_decay),
+                                       use_bias=False)(input)
 
-        d_model = 64
-        num_heads = 4
-        mlp_dim = 2048
-        channels=12
-        dropout=0.1
+            x = tf.keras.layers.BatchNormalization(momentum=0.1, epsilon=1e-5, gamma_initializer='uniform')(x)
+            x = tf.keras.layers.Activation('relu')(x)
+            return x
 
-        num_patches = (image_size // patch_size) ** 2
-        self.patch_dim = channels * patch_size ** 2
+        def expand_conv(init, base, k, strides=(1, 1)):
+            x = tf.keras.layers.Conv2D(base * k, (3, 3), padding='same', strides=strides,
+                                       kernel_initializer='he_normal',
+                                       kernel_regularizer=tf.keras.regularizers.l2(weight_decay),
+                                       use_bias=False)(init)
 
-        self.patch_size = patch_size
-        self.d_model = d_model
-        self.num_layers = num_layers
+            x = tf.keras.layers.BatchNormalization(momentum=0.1, epsilon=1e-5, gamma_initializer='uniform')(x)
+            x = tf.keras.layers.Activation('relu')(x)
 
-        self.rescale = Rescaling(1./255)
-        self.pos_emb = self.add_weight(
-            "pos_emb", shape=(1, num_patches + 1, d_model)
-        )
-        self.class_emb = self.add_weight("class_emb", shape=(1, 1, d_model))
-        self.patch_proj = Dense(d_model)
-        self.enc_layers = [
-            TransformerBlock(d_model, num_heads, mlp_dim, dropout)
-            for _ in range(num_layers)
-        ]
-        self.mlp_head = tf.keras.Sequential(
-            [
-                Dense(mlp_dim, activation=tfa.activations.gelu),
-                Dropout(dropout),
-                Dense(num_classes),
-            ]
-        )
+            x = tf.keras.layers.Conv2D(base * k, (3, 3), padding='same', kernel_initializer='he_normal',
+                                       kernel_regularizer=tf.keras.regularizers.l2(weight_decay),
+                                       use_bias=False)(x)
 
-    def extract_patches(self, images):
-        batch_size = tf.shape(images)[0]
-        patches = tf.image.extract_patches(
-            images=images,
-            sizes=[1, self.patch_size, self.patch_size, 1],
-            strides=[1, self.patch_size, self.patch_size, 1],
-            rates=[1, 1, 1, 1],
-            padding="VALID",
-        )
-        patches = tf.reshape(patches, [batch_size, -1, self.patch_dim])
-        return patches
+            skip = tf.keras.layers.Conv2D(base * k, (1, 1), padding='same', strides=strides,
+                                          kernel_initializer='he_normal',
+                                          kernel_regularizer=tf.keras.regularizers.l2(weight_decay),
+                                          use_bias=False)(init)
 
-    def call(self, x, training):
-        batch_size = tf.shape(x)[0]
-        x = self.rescale(x)
-        patches = self.extract_patches(x)
-        x = self.patch_proj(patches)
+            m = Add()([x, skip])
+            return m
 
-        class_emb = tf.broadcast_to(
-            self.class_emb, [batch_size, 1, self.d_model]
-        )
-        x = tf.concat([class_emb, x], axis=1)
-        x = x + self.pos_emb
+        def conv1_block(input, k=1, dropout=0.0):
+            init = input
 
-        for layer in self.enc_layers:
-            x = layer(x, training)
+            x = tf.keras.layers.BatchNormalization(momentum=0.1, epsilon=1e-5, gamma_initializer='uniform')(input)
+            x = tf.keras.layers.Activation('relu')(x)
+            x = tf.keras.layers.Conv2D(8 * k, (3, 3), padding='same', kernel_initializer='he_normal',
+                                       kernel_regularizer=tf.keras.regularizers.l2(weight_decay),
+                                       use_bias=False)(x)
 
-        # First (class token) is used for classification
-        x = self.mlp_head(x[:, 0])
+            if dropout > 0.0: x = Dropout(dropout)(x)
+
+            x = tf.keras.layers.BatchNormalization(momentum=0.1, epsilon=1e-5, gamma_initializer='uniform')(x)
+            x = tf.keras.layers.Activation('relu')(x)
+            #x = tf.keras.layers.Conv2D(16 * k, (3, 3), padding='same', kernel_initializer='he_normal',
+            #                           kernel_regularizer=tf.keras.regularizers.l2(weight_decay),
+            #                           use_bias=False)(x)
+            print('Conv1')
+            print(x.shape,flush=True)
+            layer = LambdaConv(8*k)
+            x = layer(x)
+            m = Add()([init, x])
+            return m
+
+        def conv2_block(input, k=1, dropout=0.0):
+            init = input
+
+            x = tf.keras.layers.BatchNormalization(momentum=0.1, epsilon=1e-5, gamma_initializer='uniform')(init)
+            x = tf.keras.layers.Activation('relu')(x)
+            x = tf.keras.layers.Conv2D(16 * k, (3, 3), padding='same', kernel_initializer='he_normal',
+                                       kernel_regularizer=tf.keras.regularizers.l2(weight_decay),
+                                       use_bias=False)(x)
+
+            if dropout > 0.0: x = Dropout(dropout)(x)
+
+            x = tf.keras.layers.BatchNormalization(momentum=0.1, epsilon=1e-5, gamma_initializer='uniform')(x)
+            x = tf.keras.layers.Activation('relu')(x)
+            #x = tf.keras.layers.Conv2D(32 * k, (3, 3), padding='same', kernel_initializer='he_normal',
+            #                           kernel_regularizer=tf.keras.regularizers.l2(weight_decay),
+            #                           use_bias=False)(x)
+            layer = LambdaConv(16*k)
+            print('Conv2')
+            print(x.shape,flush=True)
+            x = layer(x)
+            m = Add()([init, x])
+            return m
+
+        def conv3_block(input, k=1, dropout=0.0):
+            init = input
+
+            x = tf.keras.layers.BatchNormalization(momentum=0.1, epsilon=1e-5, gamma_initializer='uniform')(input)
+            x = tf.keras.layers.Activation('relu')(x)
+            x = tf.keras.layers.Conv2D(32 * k, (3, 3), padding='same', kernel_initializer='he_normal',
+                                       kernel_regularizer=tf.keras.regularizers.l2(weight_decay),
+                                       use_bias=False)(x)
+
+            if dropout > 0.0: x = Dropout(dropout)(x)
+
+            x = tf.keras.layers.BatchNormalization(momentum=0.1, epsilon=1e-5, gamma_initializer='uniform')(x)
+            x = tf.keras.layers.Activation('relu')(x)
+            #x = tf.keras.layers.Conv2D(64 * k, (3, 3), padding='same', kernel_initializer='he_normal',
+            #                           kernel_regularizer=tf.keras.regularizers.l2(weight_decay),
+            #                           use_bias=False)(x)
+            layer = LambdaConv(32*k)
+            print('Conv3')
+            print(x.shape,flush=True)
+            x = layer(x)
+            m = Add()([init, x])
+            return m
+
+        depth = 16
+        k = 2
+        dropout = 0.0
+        weight_decay = 0.0005
+
+        N = (depth - 4) // 6
+
+        x = initial_conv(allbands)
+        nb_conv = 4
+
+        x = expand_conv(x, 16, k)
+        nb_conv += 2
+
+        for i in range(N - 1):
+            x = conv1_block(x, k, dropout)
+            nb_conv += 2
+
+        x = tf.keras.layers.BatchNormalization(momentum=0.1, epsilon=1e-5, gamma_initializer='uniform')(x)
+        x = tf.keras.layers.Activation('relu')(x)
+
+        x = expand_conv(x, 32, k, strides=(2, 2))
+        nb_conv += 2
+
+        for i in range(N - 1):
+            x = conv2_block(x, k, dropout)
+            nb_conv += 2
+
+        x = tf.keras.layers.BatchNormalization(momentum=0.1, epsilon=1e-5, gamma_initializer='uniform')(x)
+        x = tf.keras.layers.Activation('relu')(x)
+
+        x = expand_conv(x, 64, k, strides=(2, 2))
+        nb_conv += 2
+
+        for i in range(N - 1):
+            x = conv3_block(x, k, dropout)
+            nb_conv += 2
+
+        x = tf.keras.layers.BatchNormalization(momentum=0.1, epsilon=1e-5, gamma_initializer='uniform')(x)
+        x = tf.keras.layers.Activation('relu')(x)
+        x = tf.keras.layers.AveragePooling2D((8, 8))(x)
+        x = tf.keras.layers.GlobalAveragePooling2D()(x)
+
+        print('Wide Residual Network-{}-{} created.'.format(nb_conv, k))
         return x
-        
-'''
+
+
+
+
+class MlpBlock(Layer):
+    def __init__(
+        self,
+        dim: int,
+        hidden_dim: int,
+        activation=None,
+        **kwargs
+    ):
+        super(MlpBlock, self).__init__(**kwargs)
+
+        if activation is None:
+            activation = tf.keras.activations.gelu
+
+        self.dim = dim
+        self.dense1 = Dense(hidden_dim)
+        self.activation = Activation(activation)
+        self.dense2 = Dense(dim)
+
+    def call(self, inputs):
+        x = inputs
+        x = self.dense1(x)
+        x = self.activation(x)
+        x = self.dense2(x)
+        return x
+
+    def compute_output_shape(self, input_signature):
+        return (input_signature[0], self.dim)
+
+
+class MixerBlock(Layer):
+    def __init__(
+        self,
+        num_patches: int,
+        channel_dim: int,
+        token_mixer_hidden_dim: int,
+        channel_mixer_hidden_dim: int = None,
+        activation=None,
+        **kwargs
+    ):
+        super(MixerBlock, self).__init__(**kwargs)
+
+        if activation is None:
+            activation = tf.keras.activations.gelu
+
+        if channel_mixer_hidden_dim is None:
+            channel_mixer_hidden_dim = token_mixer_hidden_dim
+
+        self.norm1 = LayerNormalization(axis=1)
+        self.permute1 = Permute((2, 1))
+        self.token_mixer = MlpBlock(num_patches, token_mixer_hidden_dim, name='token_mixer')
+
+        self.permute2 = Permute((2, 1))
+        self.norm2 = LayerNormalization(axis=1)
+        self.channel_mixer = MlpBlock(channel_dim, channel_mixer_hidden_dim, name='channel_mixer')
+
+        self.skip_connection1 = Add()
+        self.skip_connection2 = Add()
+
+    def call(self, inputs):
+        x = inputs
+        skip_x = x
+        x = self.norm1(x)
+        x = self.permute1(x)
+        x = self.token_mixer(x)
+
+        x = self.permute2(x)
+
+        x = self.skip_connection1([x, skip_x])
+        skip_x = x
+
+        x = self.norm2(x)
+        x = self.channel_mixer(x)
+
+        x = self.skip_connection2([x, skip_x])  # TODO need 2?
+
+        return x
+
+    def compute_output_shape(self, input_shape):
+        return input_shape
+
+#Implementation based on https://github.com/Benjamin-Etheredge/mlp-mixer-keras/blob/main/mlp_mixer_keras/mlp_mixer.py
+
+def MlpMixerModel(
+        input_shape: int,
+        num_blocks: int,
+        patch_size: int,
+        hidden_dim: int,
+        tokens_mlp_dim: int,
+        channels_mlp_dim: int = None,
+):
+    height, width, _ = input_shape
+
+    if channels_mlp_dim is None:
+        channels_mlp_dim = tokens_mlp_dim
+
+    num_patches = (height*width)//(patch_size**2)  # TODO verify how this behaves with same padding
+
+    inputs = tf.keras.Input(input_shape)
+    x = inputs
+
+    x = Conv2D(hidden_dim,
+               kernel_size=patch_size,
+               strides=patch_size,
+               padding='same',
+               name='projector')(x)
+
+    x = tf.keras.layers.Reshape([-1, hidden_dim])(x)
+
+    for _ in range(num_blocks):
+        x = MixerBlock(num_patches=num_patches,
+                       channel_dim=hidden_dim,
+                       token_mixer_hidden_dim=tokens_mlp_dim,
+                       channel_mixer_hidden_dim=channels_mlp_dim)(x)
+
+    x = GlobalAveragePooling1D()(x)  # TODO verify this global average pool is correct choice here
+
+    x = LayerNormalization(name='pre_head_layer_norm')(x)
+    #x = Dense(num_classes, name='head')(x)
+
+    #if use_softmax:
+    #    x = Softmax()(x)
+    return tf.keras.Model(inputs, x)
+
+
+class Mixer(BigEarthModel):
+    def __init__(self, nb_class):
+        super().__init__(nb_class)
+
+    def _create_model_logits(self, allbands):
+        num_bands = self._num_bands
+        x =MlpMixerModel (
+           input_shape=(120, 120, num_bands),num_blocks=18,#4,
+                      patch_size=12,
+                      hidden_dim=256,
+                      tokens_mlp_dim=64,
+                      channels_mlp_dim=128)(allbands)
+        return x
