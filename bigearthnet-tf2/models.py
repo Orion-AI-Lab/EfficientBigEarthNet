@@ -1240,6 +1240,6 @@ class Mixer(BigEarthModel):
            input_shape=(120, 120, num_bands),num_blocks=18,#4,
                       patch_size=12,
                       hidden_dim=256,
-                      tokens_mlp_dim=256,
+                      tokens_mlp_dim=64,
                       channels_mlp_dim=128)(allbands)
         return x
