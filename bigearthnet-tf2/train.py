@@ -126,6 +126,15 @@ def run_model(args):
         args['worker_index'],
     )
 
+    test_batched_dataset = create_batched_dataset(
+        args['test_tf_record_files'],
+        args['batch_size'],
+        args['shuffle_buffer_size'],
+        args['label_type'],
+        args['num_workers'],
+        args['worker_index'],
+    )
+
     # Create our model
     nb_class = 19 if args["label_type"] == "BigEarthNet-19" else 43
 
@@ -137,7 +146,8 @@ def run_model(args):
     print('Creating model: {}'.format(args['model_name']))
     bigearth_model = getattr(models, bigearth_model_class)(nb_class=nb_class)
     model = bigearth_model.model
-
+    if args['worker_index'] == 0:
+        print(model.summary())
     # DEBUG (use this to understand what the iterators are returning)
     debug = False
     if debug:
@@ -203,8 +213,8 @@ def run_model(args):
         decay_rate=decay_rate)
 
     optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)  # args["learning_rate"] * args["num_workers"])
-    if args['num_workers'] > 2:
-        optimizer = hvd.DistributedOptimizer(optimizer, backward_passes_per_step=back_passes)
+    #if args['num_workers'] > 2:
+    #    optimizer = hvd.DistributedOptimizer(optimizer, backward_passes_per_step=back_passes)
     # Setup metrics logging
     logdir = "logs/scalars/" + datetime.now().strftime("%Y%m%d-%H%M%S")
     train_summary_writer = tf.summary.create_file_writer(os.path.join(logdir, 'train'))
@@ -323,10 +333,36 @@ def run_model(args):
                 train_time = current - start
                 print('Training time in Seconds : ',train_time)
                 print('Evaluation time in Seconds: ' , eval_time)
+
+
                 #print(
                 #    'Process : {01d}: Epoch : {03d}: Elapsed Training Time : {:.6f} in Minutes, Elapsed Eval Time in Minutes'.format(
                 #        args['worker_index'], epoch,  / 60, (eval_end - eval_start) / 60))
+            if epoch == args['nb_epoch'] - 1:
+                checkpoint_test = tf.train.Checkpoint(model=model, optimizer=optimizer)
+                checkpoint_test.restore(tf.train.latest_checkpoint(checkpoint_dir))
+                test_eval = evaluate_model(model, test_batched_dataset, nb_class, args)
+                (
+                    epoch_micro_precision,
+                    epoch_macro_precision,
+                    epoch_micro_recall,
+                    epoch_macro_recall,
+                    epoch_micro_accuracy,
+                    epoch_macro_accuracy,
+                    f_score
+                ) = test_eval
+                print('\n\n\n\n Test Scores \n\n\n=============')
 
+                print(
+                    "Epoch {:03d}: micro: accuracy: {:.3f}, precision: {:.3f}, recall: {:.3f}, F-score: {:.3f}".format(
+                        epoch, epoch_micro_accuracy, epoch_micro_precision, epoch_micro_recall, f_score
+                    )
+                )
+                print(
+                    "Epoch {:03d}: macro: accuracy: {:.3f}, precision: {:.3f}, recall: {:.3f}".format(
+                        epoch, epoch_macro_accuracy, epoch_macro_precision, epoch_macro_recall
+                    )
+                )
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Training script")
