@@ -20,11 +20,13 @@ from tensorflow.keras import initializers
 from tensorflow import einsum, nn, meshgrid
 from einops import rearrange
 from inputs import BAND_STATS
+from classification_models.tfkeras import Classifiers
 
 SEED = 42
 
 MODELS_CLASS = {
     "dense": "BigEarthModel",
+    "ResNet18":"ResNet18BigEarthModel",
     "ResNet50": "ResNet50BigEarthModel",
     "ResNet101": "ResNet101BigEarthModel",
     "ResNet152": "ResNet152BigEarthModel",
@@ -185,6 +187,20 @@ class DenseNet201BigEarthModel(BigEarthModel):
 
         return x
 
+
+class ResNet18BigEarthModel(BigEarthModel):
+    def __init__(self, nb_class):
+        super().__init__(nb_class)
+
+    def _create_model_logits(self, allbands):
+        num_bands = self._num_bands
+
+        ResNet18, preprocess_input = Classifiers.get('resnet18')
+        model = ResNet18((120, 120, num_bands), weights=None, include_top=False)
+        x = model(allbands)
+        x = tf.keras.layers.GlobalAveragePooling2D()(x)
+
+        return x
 
 class ResNet50BigEarthModel(BigEarthModel):
     def __init__(self, nb_class):
@@ -1243,3 +1259,7 @@ class Mixer(BigEarthModel):
                       tokens_mlp_dim=64,
                       channels_mlp_dim=128)(allbands)
         return x
+
+
+
+
