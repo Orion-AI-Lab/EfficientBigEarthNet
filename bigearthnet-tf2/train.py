@@ -351,18 +351,19 @@ def run_model(args):
                     epoch_macro_accuracy,
                     f_score
                 ) = test_eval
-                print('\n\n\n\n Test Scores \n\n\n=============')
+                if args['worker_index'] == 0:
+                    print('\n\n\n\n Test Scores \n\n\n=============')
 
-                print(
-                    "Epoch {:03d}: micro: accuracy: {:.3f}, precision: {:.3f}, recall: {:.3f}, F-score: {:.3f}".format(
-                        epoch, epoch_micro_accuracy, epoch_micro_precision, epoch_micro_recall, f_score
+                    print(
+                        "Epoch {:03d}: micro: accuracy: {:.3f}, precision: {:.3f}, recall: {:.3f}, F-score: {:.3f}".format(
+                            epoch, epoch_micro_accuracy, epoch_micro_precision, epoch_micro_recall, f_score
+                        )
                     )
-                )
-                print(
-                    "Epoch {:03d}: macro: accuracy: {:.3f}, precision: {:.3f}, recall: {:.3f}".format(
-                        epoch, epoch_macro_accuracy, epoch_macro_precision, epoch_macro_recall
+                    print(
+                        "Epoch {:03d}: macro: accuracy: {:.3f}, precision: {:.3f}, recall: {:.3f}".format(
+                            epoch, epoch_macro_accuracy, epoch_macro_precision, epoch_macro_recall
+                        )
                     )
-                )
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Training script")

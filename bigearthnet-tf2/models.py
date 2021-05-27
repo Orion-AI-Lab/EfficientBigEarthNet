@@ -20,7 +20,7 @@ from tensorflow.keras import initializers
 from tensorflow import einsum, nn, meshgrid
 from einops import rearrange
 from inputs import BAND_STATS
-from classification_models.tfkeras import Classifiers
+#from classification_models.tfkeras import Classifiers
 
 SEED = 42
 
@@ -187,7 +187,7 @@ class DenseNet201BigEarthModel(BigEarthModel):
 
         return x
 
-
+'''
 class ResNet18BigEarthModel(BigEarthModel):
     def __init__(self, nb_class):
         super().__init__(nb_class)
@@ -201,7 +201,7 @@ class ResNet18BigEarthModel(BigEarthModel):
         x = tf.keras.layers.GlobalAveragePooling2D()(x)
 
         return x
-
+'''
 class ResNet50BigEarthModel(BigEarthModel):
     def __init__(self, nb_class):
         super().__init__(nb_class)
