@@ -3,6 +3,9 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+.vscode
+.idea
+bigearthnet-tf2/logs/
 # C extensions
 *.so
 
