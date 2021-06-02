@@ -4,9 +4,9 @@ from tensorflow.python.keras import backend as K
 
 # TP/FP/TN/FN per class
 # Precision
-#Mean Precision per class
+# Mean Precision per class
 # Recall
-#F1 Score
+# F1 Score
 
 class CustomMetrics(tf.keras.metrics.Metric):
     def __init__(self, nb_class, name="custom_metrics", **kwargs):

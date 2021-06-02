@@ -4,6 +4,7 @@
 # TODO
 #
 import tensorflow as tf
+import tensorflow_addons as tfa
 import random as rn
 import numpy as np
 import argparse
@@ -12,7 +13,6 @@ import sys
 import json
 import time
 from datetime import datetime
-# import datetime
 from inputs import create_batched_dataset
 from metrics import CustomMetrics
 from models import MODELS_CLASS
@@ -29,7 +29,6 @@ def evaluate_model(model, batched_dataset, nb_class, args):
 
     for i, single_batch in enumerate(iter(batched_dataset)):
         x_all = [
-            single_batch["B01"],
             single_batch["B02"],
             single_batch["B03"],
             single_batch["B04"],
@@ -38,7 +37,6 @@ def evaluate_model(model, batched_dataset, nb_class, args):
             single_batch["B07"],
             single_batch["B08"],
             single_batch["B8A"],
-            single_batch["B09"],
             single_batch["B11"],
             single_batch["B12"],
         ]
@@ -50,10 +48,8 @@ def evaluate_model(model, batched_dataset, nb_class, args):
         custom_metrics.update_state(y, y_)
 
     micro_precision, macro_precision, micro_recall, macro_recall, micro_accuracy, macro_accuracy, f_score = custom_metrics.result()
-    import datetime
-    now = datetime.datetime.now()
     if args['parallel']:
-        print('Time : ' + str(now) + ' Process %d Reduce ' % hvd.rank(), flush=True)
+        print('Time : ' + str(datetime.now().strftime('%Y-%m-%d %H:%M:%S')) + ' Process %d Reduce ' % hvd.rank(), flush=True)
         hvd.join()
         micro_precision = hvd.allreduce(micro_precision)
         macro_precision = hvd.allreduce(macro_precision)
@@ -144,16 +140,19 @@ def run_model(args):
         bigearth_model_class = MODELS_CLASS["dense"]
 
     print('Creating model: {}'.format(args['model_name']))
-    bigearth_model = getattr(models, bigearth_model_class)(nb_class=nb_class)
+    if args['model_name'] in ('EfficientNet', 'WideResNet'):
+        bigearth_model = getattr(models, bigearth_model_class)(nb_class=nb_class, coefficients=args['hparams'])
+    else:
+        bigearth_model = getattr(models, bigearth_model_class)(nb_class=nb_class)
     model = bigearth_model.model
     if args['worker_index'] == 0:
         print(model.summary())
+
     # DEBUG (use this to understand what the iterators are returning)
     debug = False
     if debug:
         single_batch = next(iter(train_batched_dataset))
         x_all = [
-            single_batch["B01"],
             single_batch["B02"],
             single_batch["B03"],
             single_batch["B04"],
@@ -162,7 +161,6 @@ def run_model(args):
             single_batch["B07"],
             single_batch["B08"],
             single_batch["B8A"],
-            single_batch["B09"],
             single_batch["B11"],
             single_batch["B12"],
         ]
@@ -173,7 +171,7 @@ def run_model(args):
         print(y_)
 
     # Create loss
-    loss = tf.keras.losses.BinaryCrossentropy()
+    loss = tf.keras.losses.BinaryCrossentropy(label_smoothing=tf.cast(args["label_smoothing"], tf.float64))
 
     # Setup training step
     @tf.function
@@ -199,22 +197,22 @@ def run_model(args):
     # Setup optimizer
     step_epochs = args['decay_step']
     nb_iterations_per_epoch = (args["training_size"] / args['num_workers']) / args["batch_size"]
-    # if (args["training_size"]/args['num_workers']) % args["batch_size"] != 0:
-    #        nb_iterations_per_epoch += 1
+
     decay_step = int(step_epochs * nb_iterations_per_epoch)
     back_passes = args['backward_passes']
     decay_rate = args['decay_rate']
     print('decay step : ', decay_step)
     print('Back passes : ', back_passes)
     print('Decay rate : ', decay_rate)
-    # learning_rate = args['learning_rate'] * args['num_workers']
+
     learning_rate = tf.keras.optimizers.schedules.ExponentialDecay(
         initial_learning_rate=args['learning_rate'] * args['num_workers'], decay_steps=decay_step,
-        decay_rate=decay_rate)
+        decay_rate=decay_rate, staircase=True)
 
-    optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)  # args["learning_rate"] * args["num_workers"])
-    #if args['num_workers'] > 2:
-    #    optimizer = hvd.DistributedOptimizer(optimizer, backward_passes_per_step=back_passes)
+    optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
+    if args['num_workers'] > 2:
+        optimizer = hvd.DistributedOptimizer(optimizer)
+    
     # Setup metrics logging
     logdir = "logs/scalars/" + datetime.now().strftime("%Y%m%d-%H%M%S")
     train_summary_writer = tf.summary.create_file_writer(os.path.join(logdir, 'train'))
@@ -245,7 +243,6 @@ def run_model(args):
         batch_iterator = iter(train_batched_dataset)
         for i, single_batch in enumerate(batch_iterator):
             x_all = [
-                single_batch["B01"],
                 single_batch["B02"],
                 single_batch["B03"],
                 single_batch["B04"],
@@ -254,7 +251,6 @@ def run_model(args):
                 single_batch["B07"],
                 single_batch["B08"],
                 single_batch["B8A"],
-                single_batch["B09"],
                 single_batch["B11"],
                 single_batch["B12"],
             ]
@@ -273,16 +269,6 @@ def run_model(args):
                 # print('Process %d Epoch %d Iteration %d'%(args['worker_index'],epoch,i),flush=True)
                 print("Process {:01d}:  Epoch {:03d}: Iteration {:03d} Loss: {:.3f}".format(args['worker_index'], epoch,
                                                                                             i, loss_value.numpy()))
-                # print('Learning rate : ',learning_rate)
-            # if args['parallel']:
-            #   if args['num_workers']>2:
-            #        if i%420==0:
-            #           import datetime as dt
-            #           now = dt.datetime.now()
-            #           print('Time : ' +str(now) + ' Process %d Joining ' %hvd.rank(),flush = True)
-            #           hvd.join()
-            # if args["worker_index"]==0:
-            # print('Process : ', args['worker_index'], ' , Update progress bar : ',i+1, flush=True)
             progress_bar.update(i + 1)
 
         # End epoch
@@ -310,9 +296,8 @@ def run_model(args):
                 f_score
             ) = evaluation
             if args['worker_index'] == 0 and f_score > bestfscore:
-                bestfscore = f_score
-                print("Process {:01d}: New Best F-Score : ", bestfscore,
-                      "  Epoch : {:03d} Writing Checkpoint".format(args['worker_index'], epoch))
+                bestfscore = f_score.numpy()
+                print("Process {:01d}: New Best F-Score : {:.3f}\n Epoch : {:03d} Writing Checkpoint".format(args['worker_index'], bestfscore, epoch))
                 print("Process {:01d}:  Epoch : {:03d} Writing Checkpoint".format(args['worker_index'], epoch))
                 checkpoint.save(checkpoint_dir)
                 print(
@@ -328,16 +313,19 @@ def run_model(args):
             if args['worker_index'] == 0:
                 eval_end = time.time()
                 eval_time = eval_end - eval_start
+                eval_hours, eval_remainder = divmod(eval_end-eval_start, 3600)
+                eval_minutes, eval_seconds = divmod(eval_remainder, 60)
+
                 start = start + eval_time
-                current = time.time()
-                train_time = current - start
-                print('Training time in Seconds : ',train_time)
-                print('Evaluation time in Seconds: ' , eval_time)
+                train_end = time.time()
+                train_time = train_end - start
+                train_hours, train_remainder = divmod(train_time, 3600)
+                train_minutes, train_seconds = divmod(train_remainder, 60)
+
+                print('Train took: {:0>2}hr. {:0>2}min. {:05.2f}sec.'.format(int(train_hours),int(train_minutes),train_seconds))
+                print('Validation took: {:0>2}hr. {:0>2}min. {:05.2f}sec.'.format(int(eval_hours),int(eval_minutes),eval_seconds))
 
 
-                #print(
-                #    'Process : {01d}: Epoch : {03d}: Elapsed Training Time : {:.6f} in Minutes, Elapsed Eval Time in Minutes'.format(
-                #        args['worker_index'], epoch,  / 60, (eval_end - eval_start) / 60))
             if epoch == args['nb_epoch'] - 1:
                 checkpoint_test = tf.train.Checkpoint(model=model, optimizer=optimizer)
                 checkpoint_test.restore(tf.train.latest_checkpoint(checkpoint_dir))
