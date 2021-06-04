@@ -3,6 +3,8 @@
 #
 # TODO
 #
+import math
+
 import tensorflow as tf
 import tensorflow_addons as tfa
 import random as rn
@@ -172,7 +174,7 @@ def run_model(args):
 
     # Create loss
     loss = tf.keras.losses.BinaryCrossentropy(label_smoothing=tf.cast(args["label_smoothing"], tf.float64))
-
+    print('Learning Rate : ',args['learning_rate'])
     # Setup training step
     @tf.function
     def training_step(inputs, targets, first_batch):
@@ -192,13 +194,13 @@ def run_model(args):
                 hvd.broadcast_variables(model.variables, root_rank=0)
                 hvd.broadcast_variables(optimizer.variables(), root_rank=0)
 
-        return loss_value
+        return loss_value, y_pred
 
     # Setup optimizer
     step_epochs = args['decay_step']
     nb_iterations_per_epoch = (args["training_size"] / args['num_workers']) / args["batch_size"]
 
-    decay_step = int(step_epochs * nb_iterations_per_epoch)
+    decay_step = int(step_epochs * nb_iterations_per_epoch)#*args['num_workers']
     back_passes = args['backward_passes']
     decay_rate = args['decay_rate']
     print('decay step : ', decay_step)
@@ -207,11 +209,12 @@ def run_model(args):
 
     learning_rate = tf.keras.optimizers.schedules.ExponentialDecay(
         initial_learning_rate=args['learning_rate'] * args['num_workers'], decay_steps=decay_step,
-        decay_rate=decay_rate, staircase=True)
+        decay_rate=decay_rate,staircase=False)
 
-    optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
+
+    optimizer = tf.keras.optimizers.Adam(learning_rate = learning_rate)
     if args['num_workers'] > 2:
-        optimizer = hvd.DistributedOptimizer(optimizer)
+        optimizer = hvd.DistributedOptimizer(optimizer, backward_passes_per_step = back_passes)
     
     # Setup metrics logging
     logdir = "logs/scalars/" + datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -224,11 +227,42 @@ def run_model(args):
     batch_size = args["batch_size"]
     epoch_custom_metrics = CustomMetrics(nb_class=nb_class)
     bestfscore = 0
+
+    if args['mode'] == 'eval':
+        check_dir = args['eval_checkpoint']
+        checkpoint_test = tf.train.Checkpoint(model=model, optimizer=optimizer)
+        checkpoint_test.restore(tf.train.latest_checkpoint(check_dir))
+        test_eval = evaluate_model(model, test_batched_dataset, nb_class, args)
+        (
+            epoch_micro_precision,
+            epoch_macro_precision,
+            epoch_micro_recall,
+            epoch_macro_recall,
+            epoch_micro_accuracy,
+            epoch_macro_accuracy,
+            f_score
+        ) = test_eval
+        if args['worker_index'] == 0:
+            print('\n\n\n\n Test Scores \n\n\n=============')
+
+            print(
+                "Evaluation : micro: accuracy: {:.3f}, precision: {:.3f}, recall: {:.3f}, F-score: {:.3f}".format(
+                     epoch_micro_accuracy, epoch_micro_precision, epoch_micro_recall, f_score
+                )
+            )
+            print(
+                " macro: accuracy: {:.3f}, precision: {:.3f}, recall: {:.3f}".format(
+                     epoch_macro_accuracy, epoch_macro_precision, epoch_macro_recall
+                )
+            )
+        return 0
+
     if args['worker_index'] == 0:
         start = time.time()
     for epoch in range(args["nb_epoch"]):
         epoch_time = time.time()
         print("\nProcess {} : Starting epoch {} ".format(args['worker_index'], epoch))
+        print('Learning rate: {0:.6f}'.format(optimizer._decayed_lr('float32').numpy()))
 
         epoch_loss_avg = tf.keras.metrics.Mean(dtype='float64')
         epoch_custom_metrics.reset_states()
@@ -258,11 +292,11 @@ def run_model(args):
 
             # Optimize the model
             first_batch = (i == 0 and epoch == 0)
-            loss_value = training_step(x_all, y, first_batch)
+            loss_value, y_ = training_step(x_all, y, first_batch)
             # Track progress
             epoch_loss_avg.update_state(loss_value)  # Add current batch loss
             # Compare predicted label to actual label
-            y_ = model(x_all, training=False)
+            #y_ = model(x_all, training=False)
             # Update all custom metrics
             epoch_custom_metrics.update_state(y, y_)
             if i % 20 == 0 and args['worker_index'] == 0:
