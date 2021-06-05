@@ -206,10 +206,7 @@ def run_model(args):
     print('decay step : ', decay_step)
     print('Back passes : ', back_passes)
     print('Decay rate : ', decay_rate)
-
-    learning_rate = tf.keras.optimizers.schedules.ExponentialDecay(
-        initial_learning_rate=args['learning_rate'] * args['num_workers'], decay_steps=decay_step,
-        decay_rate=decay_rate,staircase=False)
+    learning_rate = args['learning_rate']*args['num_workers']
 
 
     optimizer = tf.keras.optimizers.Adam(learning_rate = learning_rate)
@@ -260,6 +257,9 @@ def run_model(args):
     if args['worker_index'] == 0:
         start = time.time()
     for epoch in range(args["nb_epoch"]):
+        if epoch % args['decay_step']==0 and epoch>0:
+            optimizer.lr = optimizer.lr * args['decay_rate']
+            #print('Updated Learning rate : ', optimizer.lr)
         epoch_time = time.time()
         print("\nProcess {} : Starting epoch {} ".format(args['worker_index'], epoch))
         print('Learning rate: {0:.6f}'.format(optimizer._decayed_lr('float32').numpy()))
