@@ -6,6 +6,7 @@ __pycache__/
 .vscode
 .idea
 bigearthnet-tf2/logs/
+bigearthnet-tf2/checkpoint_*/
 # C extensions
 *.so
 
