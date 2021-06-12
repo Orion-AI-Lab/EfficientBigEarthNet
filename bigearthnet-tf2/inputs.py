@@ -89,7 +89,7 @@ def _preprocess_function(example, label_type, augmentation):
     if augmentation:
         augmentation = random.randint(0,10)
         second_aug = random.randint(0, 10)
-
+        k_rand = random.int(0,3)
     newexample = {}
     for band in BAND_STATS["mean"].keys():
         band_tensor = example[band]
@@ -105,7 +105,7 @@ def _preprocess_function(example, label_type, augmentation):
             if augmentation % 2 == 0:
                  newexample[band] = tf.image.flip_up_down(tf.expand_dims(newexample[band], axis=2))
                  if second_aug % 2 ==0:
-                     newexample[band] = tf.image.rot90(newexample[band], k=second_aug)
+                     newexample[band] = tf.image.rot90(newexample[band], k=k_rand)
                  newexample[band] = tf.squeeze(newexample[band],axis=2)
 
     newexample[label_type + "_labels"] = example[label_type + "_labels"]
