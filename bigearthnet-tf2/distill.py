@@ -138,22 +138,24 @@ def run_model(args):
     nb_class = 19 if args["label_type"] == "BigEarthNet-19" else 43
 
     try:
-        bigearth_model_class = MODELS_CLASS[args["model_name"]]
+        bigearth_teacher_class = MODELS_CLASS[args["model_name"]]
+        bigearth_student_class = MODELS_CLASS[args["student_name"]]
     except:
-        bigearth_model_class = MODELS_CLASS["dense"]
+        bigearth_teacher_class = MODELS_CLASS["dense"]
+        bigearth_student_class = MODELS_CLASS["dense"]
 
     print('Creating model: {}'.format(args['model_name']))
     if args['model_name'] in ('EfficientNet', 'WideResNet'):
-        bigearth_teacher_model = getattr(models, bigearth_model_class)(nb_class=nb_class, coefficients=args['hparams'])
+        bigearth_teacher_model = getattr(models, bigearth_teacher_class)(nb_class=nb_class, coefficients=args['hparams'])
     else:
-        bigearth_teacher_model = getattr(models, bigearth_model_class)(nb_class=nb_class)
+        bigearth_teacher_model = getattr(models, bigearth_teacher_class)(nb_class=nb_class)
     if args['student_name'] in ('EfficientNet', 'WideResNet'):
-        bigearth__student_model = getattr(models, bigearth_model_class)(nb_class=nb_class, coefficients=args['hparams'])
+        bigearth_student_model = getattr(models, bigearth_student_class)(nb_class=nb_class, coefficients=args['hparams'])
     else:
-        bigearth__student_model = getattr(models, bigearth_model_class)(nb_class=nb_class)
+        bigearth_student_model = getattr(models, bigearth_student_class)(nb_class=nb_class)
 
     teacher = bigearth_teacher_model.model
-    student = bigearth__student_model.model
+    student = bigearth_student_model.model
     if args['worker_index'] == 0:
         print('Teacher:')
         print(teacher.summary())
