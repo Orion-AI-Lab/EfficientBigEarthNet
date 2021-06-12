@@ -10,6 +10,7 @@
 import tensorflow as tf
 import numpy as np
 from glob import glob
+import random
 
 BAND_STATS = {
     "mean": {
@@ -82,9 +83,12 @@ def _parse_function(example_proto, label_type):
     }
 
 
-def _preprocess_function(example, label_type):
+def _preprocess_function(example, label_type, augmentation):
     """Preprocess an example.
     """
+    if augmentation:
+        augmentation = random.randint(0,10)
+        second_aug = random.randint(0, 10)
 
     newexample = {}
     for band in BAND_STATS["mean"].keys():
@@ -96,8 +100,13 @@ def _preprocess_function(example, label_type):
             ),
             tf.constant(BAND_STATS["std"][band], shape=band_tensor.shape),
         )
-
-        # TODO: add some tranformations here, like flip left-right, small rotation, etc.
+        if augmentation:
+            # TODO: add some tranformations here, like flip left-right, small rotation, etc.
+            if augmentation % 2 == 0:
+                 newexample[band] = tf.image.flip_up_down(tf.expand_dims(newexample[band], axis=2))
+                 if second_aug % 2 ==0:
+                     newexample[band] = tf.image.rot90(newexample[band], k=second_aug)
+                 newexample[band] = tf.squeeze(newexample[band],axis=2)
 
     newexample[label_type + "_labels"] = example[label_type + "_labels"]
     newexample[label_type + "_labels_multi_hot"] = example[
@@ -109,11 +118,12 @@ def _preprocess_function(example, label_type):
 
 
 def create_batched_dataset(TFRecord_paths, batch_size, shuffle_buffer_size, label_type, num_workers, worker_index,
-                           num_parallel_calls=tf.data.experimental.AUTOTUNE):
+                           num_parallel_calls=tf.data.experimental.AUTOTUNE,augment=False):
     """Create an input batched dataset.
     """
     parse_fn = lambda x: _parse_function(x, label_type=label_type)
-    preprocess_fn = lambda x: _preprocess_function(x, label_type=label_type)
+    preprocess_fn = lambda x: _preprocess_function(x, label_type=label_type, augmentation=augment)
+
 
     records = []
     for i in TFRecord_paths:
@@ -126,7 +136,6 @@ def create_batched_dataset(TFRecord_paths, batch_size, shuffle_buffer_size, labe
         dataset = dataset.shuffle(buffer_size=shuffle_buffer_size)
     dataset = dataset.map(parse_fn, num_parallel_calls=num_parallel_calls)
     dataset = dataset.map(preprocess_fn, num_parallel_calls=num_parallel_calls)
-
     dataset = dataset.batch(batch_size, drop_remainder=False)
 
     batched_dataset = dataset.prefetch(num_parallel_calls)

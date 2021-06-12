@@ -113,6 +113,7 @@ def run_model(args):
         args["label_type"],
         args['num_workers'],
         args['worker_index'],
+        augment=args['augment']
     )
 
     val_batched_dataset = create_batched_dataset(
