@@ -89,7 +89,7 @@ def _preprocess_function(example, label_type, augmentation):
     if augmentation:
         augmentation = random.randint(0,10)
         second_aug = random.randint(0, 10)
-        k_rand = random.int(0,3)
+        k_rand = random.randint(0,3)
     newexample = {}
     for band in BAND_STATS["mean"].keys():
         band_tensor = example[band]
