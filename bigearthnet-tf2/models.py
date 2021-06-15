@@ -44,7 +44,7 @@ MODELS_CLASS = {
     "ViT": "ViT",
     'Lambda': "LambdaResNet",
     'MLPMixer': 'Mixer',
-    'MLPMixer_Tiny' : 'MixerTiny'
+    'MLPMixer_Tiny' : 'Mixer_Tiny'
 }
 
 
