@@ -1,6 +1,7 @@
 import numpy as np
 import tensorflow as tf
 from tensorflow.python.keras import backend as K
+from pprint import pprint
 
 # TP/FP/TN/FN per class
 # Precision
@@ -127,11 +128,23 @@ class CustomMetrics(tf.keras.metrics.Metric):
         macro_accuracy = tf.reduce_mean(macro_accuracy_class)
 
         #F1-Score
-
         f_score = tf.where(
             tf.logical_and(
                 tf.equal(micro_precision, self._zero), tf.equal(micro_recall, self._zero))
                            , x=self._zero, y= 2*(micro_precision*micro_recall)/(micro_precision + micro_recall))
+        
+        f_score_class = tf.where(
+            tf.logical_and(
+                tf.equal(macro_precision_class, self._zero), tf.equal(macro_recall_class, self._zero))
+                           , x=self._zero, y= 2*(macro_precision_class*macro_recall_class)/(macro_precision_class + macro_recall_class))
+        
+        pprint(dict(zip([
+                        "Urban fabric", "Industrial or commercial units", "Arable land", "Permanent crops", "Pastures",
+                        "Complex cultivation patterns", "Land principally occupied by agriculture, with significant areas of natural vegetation",
+                        "Agro-forestry areas", "Broad-leaved forest", "Coniferous forest", "Mixed forest", "Natural grassland and sparsely vegetated areas",
+                        "Moors, heathland and sclerophyllous vegetation", "Transitional woodland, shrub", "Beaches, dunes, sands", "Inland wetlands", 
+                        "Coastal wetlands", "Inland waters", "Marine waters"
+                        ], f_score_class.numpy())))
 
         return (
             micro_precision,
