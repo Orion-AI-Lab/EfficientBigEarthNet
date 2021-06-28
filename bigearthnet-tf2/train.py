@@ -19,6 +19,7 @@ from inputs import create_batched_dataset
 from metrics import CustomMetrics
 from models import MODELS_CLASS
 import models
+from gradcam import make_gradcam_heatmap, save_gradcam
 
 SEED = 42
 
@@ -29,6 +30,8 @@ def evaluate_model(model, batched_dataset, nb_class, args):
     print('Running model on validation dataset')
     custom_metrics = CustomMetrics(nb_class=nb_class)
 
+    processed_imgs = 0
+    start = time.time()
     for i, single_batch in enumerate(iter(batched_dataset)):
         x_all = [
             single_batch["B02"],
@@ -43,11 +46,15 @@ def evaluate_model(model, batched_dataset, nb_class, args):
             single_batch["B12"],
         ]
         y = single_batch[args["label_type"] + "_labels_multi_hot"]
-
         # Compare predicted label to actual label
         y_ = model(x_all, training=False)
+        save_gradcam(x_all, make_gradcam_heatmap(x_all, model))
         # Update all custom metrics
         custom_metrics.update_state(y, y_)
+        processed_imgs += x_all[0].shape[0]
+    
+    if args['worker_index'] == 0:
+        print('Inference rate: {} images/sec'.format(processed_imgs // (time.time() - start)))
 
     micro_precision, macro_precision, micro_recall, macro_recall, micro_accuracy, macro_accuracy, f_score = custom_metrics.result()
     if args['parallel']:
