@@ -193,7 +193,19 @@ def run_model(args):
     # Create loss
     loss = tf.keras.losses.BinaryCrossentropy(label_smoothing=tf.cast(args["label_smoothing"], tf.float64))
     distillation_loss_fn = tf.keras.losses.KLDivergence()
+    def get_kd_loss(student_logits, teacher_logits,
+                    true_labels, temperature,
+                    alpha, beta):
+        teacher_probs = tf.nn.softmax(teacher_logits / temperature)
+        kd_loss = tf.keras.losses.categorical_crossentropy(
+            teacher_probs, student_logits / temperature,
+            from_logits=True)
 
+        ce_loss = tf.keras.losses.sparse_categorical_crossentropy(
+            true_labels, student_logits, from_logits=True)
+
+        total_loss = (alpha * kd_loss) + (beta * ce_loss)
+        return total_loss / (alpha + beta)
     print('Learning Rate : ', args['learning_rate'])
 
     # Setup training step
@@ -203,11 +215,15 @@ def run_model(args):
         with tf.GradientTape() as tape:
             y_pred = student(inputs, training=True)
             student_loss = loss(y_true=targets, y_pred=y_pred)
+            # distillation_loss = distillation_loss_fn(
+            #     tf.nn.softmax(teacher_predictions / args['temperature'], axis=1),
+            #     tf.nn.softmax(y_pred / args['temperature'], axis=1)
+            # )
+            teacher_probs = tf.nn.softmax(teacher_predictions / args['temperature'])
             distillation_loss = distillation_loss_fn(
-                tf.nn.softmax(teacher_predictions / args['temperature'], axis=1),
-                tf.nn.softmax(y_pred / args['temperature'], axis=1),
-            )
-            loss_value = args['alpha'] * student_loss + (1 - args['alpha']) * distillation_loss
+                teacher_probs, y_pred / args['temperature'])
+            #loss_value = args['alpha'] * student_loss + (1 - args['alpha']) * distillation_loss
+            loss_value = (args['alpha'] * distillation_loss) + ((1 - args['alpha']) * student_loss)
         if args['parallel']:
             # Horovod: add Horovod Distributed GradientTape.
             tape = hvd.DistributedGradientTape(tape)
@@ -243,7 +259,10 @@ def run_model(args):
     train_summary_writer = tf.summary.create_file_writer(os.path.join(logdir, 'train'))
     train_summary_writer.set_as_default()
     test_summary_writer = tf.summary.create_file_writer(os.path.join(logdir, 'test'))
-    teacher_checkpoint_dir = './checkpoint_' + args['model_name'] + '/checkpoints'
+    if args['takd']:
+        teacher_checkpoint_dir = './checkpoint_student_' + args['model_name'] + '/checkpoints'
+    else:
+        teacher_checkpoint_dir = './checkpoint_' + args['model_name'] + '/checkpoints'
     teacher_checkpoint = tf.train.Checkpoint(model=teacher, optimizer=optimizer)
     teacher_checkpoint.restore(tf.train.latest_checkpoint(teacher_checkpoint_dir))
     student_checkpoint_dir = './checkpoint_student_' + args['student_name'] + '/checkpoints'
