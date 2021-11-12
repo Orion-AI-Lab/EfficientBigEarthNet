@@ -3,6 +3,7 @@
 # The models
 #
 
+from re import X
 import numpy as np
 import tensorflow as tf
 import math
@@ -12,8 +13,9 @@ from tensorflow.keras.models import Model
 from tensorflow.keras import layers, activations
 from tensorflow.keras.applications import ResNet50, ResNet101, ResNet152, VGG16, VGG19
 from tensorflow import einsum
-from einops import rearrange
+# from einops import rearrange
 from inputs import BAND_STATS
+from modules import se_module, cbam_module, coord_module, eca_module, ghost_module
 
 SEED = 42
 
@@ -21,6 +23,7 @@ MODELS_CLASS = {
     "dense": "BigEarthModel",
     "ResNet18": "ResNet18BigEarthModel",
     "ResNet50": "ResNet50BigEarthModel",
+    "ResNet_50": "ResNet_50",
     "ResNet101": "ResNet101BigEarthModel",
     "ResNet152": "ResNet152BigEarthModel",
     "VGG16": "VGG16BigEarthModel",
@@ -31,8 +34,6 @@ MODELS_CLASS = {
     "DenseNet201": "DenseNet201BigEarthModel",
     "WideResNet": "WideResNet",
     "EfficientNet": "EfficientNet",
-    "EfficientNetV2": "EfficientNetV2",
-    "GhostEffNetV2": "GhostEffNetV2",
     "EfficientNetB0": "EfficientNetB0",
     "EfficientNetB1": "EfficientNetB1",
     "EfficientNetB2": "EfficientNetB2",
@@ -277,6 +278,90 @@ class VGG19BigEarthModel(BigEarthModel):
 
         return x
 
+class ResNet_50(BigEarthModel):
+    def __init__(self, nb_class, resolution=(120, 120), dtype="float64"):
+        super().__init__(nb_class, resolution=resolution, dtype=dtype)
+
+    def _create_model_logits(self, allbands):
+        def identity_block(input_tensor, kernel_size, filters, stage, block):
+
+            filters1, filters2, filters3 = filters
+            conv_name_base = 'res' + str(stage) + block + '_branch'
+            bn_name_base = 'bn' + str(stage) + block + '_branch'
+
+            x = Conv2D(filters1, (1, 1), name=conv_name_base + '2a')(input_tensor)
+            x = BatchNormalization(name=bn_name_base + '2a')(x)
+            x = Activation('relu')(x)
+
+            x = Conv2D(filters2, kernel_size, padding='same', name=conv_name_base + '2b')(x)
+            x = BatchNormalization(name=bn_name_base + '2b')(x)
+            x = Activation('relu')(x)
+
+            x = Conv2D(filters3, (1, 1), name=conv_name_base + '2c')(x)
+            x = BatchNormalization(name=bn_name_base + '2c')(x)
+
+            x = layers.add([x, input_tensor])
+            x = Activation('relu')(x)
+            return x
+
+
+        def conv_block(input_tensor, kernel_size, filters, stage, block, strides=(2, 2)):
+            filters1, filters2, filters3 = filters
+            conv_name_base = 'res' + str(stage) + block + '_branch'
+            bn_name_base = 'bn' + str(stage) + block + '_branch'
+
+            x = Conv2D(filters1, (1, 1), strides=strides,
+                    name=conv_name_base + '2a')(input_tensor)
+            x = BatchNormalization(name=bn_name_base + '2a')(x)
+            x = Activation('relu')(x)
+
+            x = Conv2D(filters2, kernel_size, padding='same',
+                    name=conv_name_base + '2b')(x)
+            x = BatchNormalization(name=bn_name_base + '2b')(x)
+            x = Activation('relu')(x)
+
+            x = Conv2D(filters3, (1, 1), name=conv_name_base + '2c')(x)
+            x = BatchNormalization(name=bn_name_base + '2c')(x)
+
+            shortcut = Conv2D(filters3, (1, 1), strides=strides,
+                            name=conv_name_base + '1')(input_tensor)
+            shortcut = BatchNormalization(name=bn_name_base + '1')(shortcut)
+
+            x = layers.add([x, shortcut])
+            x = Activation('relu')(x)
+            return x
+
+
+        x = tf.keras.layers.ZeroPadding2D((3, 3))(allbands)
+        x = Conv2D(64, (7, 7), strides=(2, 2), name='conv1')(x)
+        x = BatchNormalization(name='bn_conv1')(x)
+        x = Activation('relu')(x)
+        x = tf.keras.layers.ZeroPadding2D(padding=(1, 1), name='pool1_pad')(x)
+        x = tf.keras.layers.MaxPooling2D((3, 3), strides=(2, 2))(x)
+
+        x = conv_block(x, 3, [64, 64, 256], stage=2, block='a', strides=(1, 1))
+        x = identity_block(x, 3, [64, 64, 256], stage=2, block='b')
+        x = identity_block(x, 3, [64, 64, 256], stage=2, block='c')
+
+        x = conv_block(x, 3, [128, 128, 512], stage=3, block='a')
+        x = identity_block(x, 3, [128, 128, 512], stage=3, block='b')
+        x = identity_block(x, 3, [128, 128, 512], stage=3, block='c')
+        x = identity_block(x, 3, [128, 128, 512], stage=3, block='d')
+
+        x = conv_block(x, 3, [256, 256, 1024], stage=4, block='a')
+        x = identity_block(x, 3, [256, 256, 1024], stage=4, block='b')
+        x = identity_block(x, 3, [256, 256, 1024], stage=4, block='c')
+        x = identity_block(x, 3, [256, 256, 1024], stage=4, block='d')
+        x = identity_block(x, 3, [256, 256, 1024], stage=4, block='e')
+        x = identity_block(x, 3, [256, 256, 1024], stage=4, block='f')
+
+        x = conv_block(x, 3, [512, 512, 2048], stage=5, block='a')
+        x = identity_block(x, 3, [512, 512, 2048], stage=5, block='b')
+        x = identity_block(x, 3, [512, 512, 2048], stage=5, block='c')
+
+        x = tf.keras.layers.GlobalAveragePooling2D()(x)
+        return x
+
 
 class EfficientNet(BigEarthModel):
     def __init__(self, nb_class, coefficients):
@@ -285,6 +370,8 @@ class EfficientNet(BigEarthModel):
         self.beta = coefficients['beta'] ** self.phi
         self.gamma = coefficients['gamma'] ** self.phi
         self.dropout_rate = coefficients['dropout']
+        self.attention_module = eca_module # se_module, cbam_module, coord_module, eca_module
+        self.ghost_conv = True
         super().__init__(nb_class, tuple(int(math.ceil(dimension * self.gamma / 10.0)) * 10 for dimension in (60, 60)))
 
     def _create_model_logits(self, allbands):
@@ -308,10 +395,26 @@ class EfficientNet(BigEarthModel):
             return int(math.ceil(multiplier * repeats))
 
         def conv_bn(x, filters, kernel_size, strides, activation=True):
+            if self.ghost_conv:
+                x = ghost_module(x, filters, kernel_size, strides)
+            else:
+                x = tf.keras.layers.Conv2D(filters=filters,
+                                           kernel_size=kernel_size,
+                                           strides=strides,
+                                           padding='same',
+                                           kernel_initializer='he_normal',
+                                           kernel_regularizer=tf.keras.regularizers.l2(5e-4)
+                                           )(x)
+            x = tf.keras.layers.BatchNormalization(momentum=0.1, epsilon=1e-5, gamma_initializer='uniform')(x)
+            if activation:
+                x = swish(x)
+            return x
+
+        def conv_bn_0(x, filters, kernel_size, strides, activation=True):
             x = tf.keras.layers.Conv2D(filters=filters,
                                        kernel_size=kernel_size,
                                        strides=strides,
-                                       padding='SAME',
+                                       padding='same',
                                        kernel_initializer='he_normal',
                                        kernel_regularizer=tf.keras.regularizers.l2(5e-4)
                                        )(x)
@@ -331,24 +434,11 @@ class EfficientNet(BigEarthModel):
             x = tf.keras.layers.Activation(tf.nn.relu6)(x)
             return x
 
-        def Squeeze_excitation_layer(x):
-            inputs = x
-            squeeze = inputs.shape[-1] / 2
-            excitation = inputs.shape[-1]
-            x = tf.keras.layers.GlobalAveragePooling2D()(x)
-            x = tf.keras.layers.Dense(squeeze)(x)
-            x = swish(x)
-            x = tf.keras.layers.Dense(excitation)(x)
-            x = tf.keras.layers.Activation('sigmoid')(x)
-            x = tf.keras.layers.Reshape((1, 1, excitation))(x)
-            x = inputs * x
-            return x
-
         def MBConv_idskip(x, filters, drop_connect_rate, kernel_size, strides, t):
             x_input = x
             x = conv_bn(x, filters=x.shape[-1] * t, kernel_size=1, strides=1)
             x = depthwiseConv_bn(x, kernel_size=kernel_size, strides=strides)
-            x = Squeeze_excitation_layer(x)
+            x = self.attention_module(x)
             x = swish(x)
             x = conv_bn(x, filters=filters, kernel_size=1, strides=1, activation=False)
 
@@ -366,7 +456,7 @@ class EfficientNet(BigEarthModel):
 
         print(self.alpha, self.beta, self.gamma, self.dropout_rate)
 
-        x = conv_bn(allbands, round_filters(32, self.beta),
+        x = conv_bn_0(allbands, round_filters(32, self.beta),
                     kernel_size=3, strides=2, activation=True)
         x = MBConv(x, filters=round_filters(16, self.beta), kernel_size=3,
                    drop_connect_rate=self.dropout_rate, strides=1, t=1, n=round_repeats(1, self.alpha))
@@ -383,411 +473,11 @@ class EfficientNet(BigEarthModel):
         x = MBConv(x, filters=round_filters(320, self.beta), kernel_size=3,
                    drop_connect_rate=self.dropout_rate, strides=1, t=6, n=round_repeats(1, self.alpha))
 
-        x = conv_bn(x, filters=round_filters(1280, self.beta), kernel_size=1, strides=1)
+        x = conv_bn_0(x, filters=round_filters(1280, self.beta), kernel_size=1, strides=1)
         x = tf.keras.layers.GlobalAveragePooling2D()(x)
         x = tf.keras.layers.Dropout(rate=self.dropout_rate)(x)
 
         return x
-
-
-class EfficientNetV2(BigEarthModel):
-    def __init__(self, nb_class):
-        super().__init__(nb_class)
-
-    def _create_model_logits(self, allbands):
-        def round_filters(filters, multiplier=1.):
-            divisor = 8
-            min_depth = 8
-            filters *= multiplier
-            min_depth = min_depth or divisor
-            new_filters = max(min_depth, int(filters + divisor / 2) // divisor * divisor)
-            return int(new_filters)
-
-        def round_repeats(repeats, multiplier=1.):
-            return int(math.ceil(multiplier * repeats))
-
-        def squeeze_and_excite(x, in_channels, out_channels, activation, reduction_ratio=4):
-            x = tf.keras.layers.GlobalAvgPool2D()(x)
-            x = tf.keras.layers.Dense(in_channels // reduction_ratio)(x)
-            x = tf.keras.layers.Activation(activation)(x)
-            x = tf.keras.layers.Dense(out_channels)(x)
-            x = tf.keras.layers.Activation(activations.sigmoid)(x)
-            return x
-
-        def fused_mbconv(x, in_channels, out_channels, kernel_size, activation, stride=1, reduction_ratio=4,
-                         expansion=6, dropout=None, drop_connect=.2):
-            shortcut = x
-            expanded = round_filters(in_channels * expansion)
-
-            if expansion != 1:
-                x = tf.keras.layers.Conv2D(expanded, kernel_size, stride, padding="same", use_bias=False)(x)
-                x = tf.keras.layers.BatchNormalization(epsilon=1e-5)(x)
-                x = tf.keras.layers.Activation(activation)(x)
-
-                if (dropout is not None) and (dropout != 0.):
-                    x = tf.keras.layers.Dropout(dropout)(x)
-
-            if reduction_ratio is not None:
-                se = squeeze_and_excite(x, in_channels, expanded, activation, reduction_ratio)
-                x = tf.keras.layers.Multiply()([x, se])
-
-            x = tf.keras.layers.Conv2D(out_channels, (1, 1) if expansion != 1 else kernel_size, 1, padding="same",
-                                       use_bias=False)(x)
-            x = tf.keras.layers.BatchNormalization(epsilon=1e-5)(x)
-            if (stride == 1) and (in_channels == out_channels):
-                shortcut = tf.keras.layers.SpatialDropout2D(drop_connect)(shortcut)
-                x = tf.keras.layers.Add()([x, shortcut])
-            return tf.keras.layers.Activation(activation)(x)
-
-        def mbconv(x, in_channels, out_channels, kernel_size, activation, stride=1,
-                   reduction_ratio=4, expansion=6, dropout=None, drop_connect=.2):
-            shortcut = x
-            expanded = round_filters(in_channels * expansion)
-
-            if expansion != 1:
-                x = tf.keras.layers.Conv2D(expanded, (1, 1), 1, padding="same", use_bias=False)(x)
-                x = tf.keras.layers.BatchNormalization(epsilon=1e-5)(x)
-                x = tf.keras.layers.Activation(activation)(x)
-
-            x = tf.keras.layers.DepthwiseConv2D(kernel_size=kernel_size, strides=stride, padding="same",
-                                                use_bias=False)(x)
-            x = tf.keras.layers.BatchNormalization(epsilon=1e-5)(x)
-            x = tf.keras.layers.Activation(activation)(x)
-
-            if (expansion != 1) and (dropout is not None) and (dropout != 0.):
-                x = tf.keras.layers.Dropout(dropout)(x)
-
-            if reduction_ratio is not None:
-                se = squeeze_and_excite(x, in_channels, expanded, activation, reduction_ratio)
-                x = tf.keras.layers.Multiply()([x, se])
-
-            x = tf.keras.layers.Conv2D(out_channels, (1, 1), 1, padding="same", use_bias=False)(x)
-            x = tf.keras.layers.BatchNormalization(epsilon=1e-5)(x)
-            if (stride == 1) and (in_channels == out_channels):
-                shortcut = tf.keras.layers.SpatialDropout2D(drop_connect)(shortcut)
-                x = tf.keras.layers.Add()([x, shortcut])
-            return tf.keras.layers.Activation(activation)(x)
-
-        def repeat(x, count, in_channels, out_channels, kernel_size, activation,
-                   stride=1, reduction_ratio=None, expansion=6, fused=False, dropout=None, drop_connect=.2):
-            for i in range(count):
-                if fused:
-                    x = fused_mbconv(x, in_channels, out_channels, kernel_size,
-                                     activation, stride, reduction_ratio, expansion, dropout, drop_connect)
-                else:
-                    x = mbconv(x, in_channels, out_channels, kernel_size, activation, stride,
-                               reduction_ratio, expansion, dropout, drop_connect)
-            return x
-
-        def stage(x, count, in_channels, out_channels, kernel_size, activation,
-                  stride=1, reduction_ratio=None, expansion=6, fused=False, dropout=None, drop_connect=.2):
-            x = repeat(x, count=1, in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size,
-                       activation=activation, stride=stride, reduction_ratio=reduction_ratio,
-                       expansion=expansion, fused=fused, dropout=dropout, drop_connect=drop_connect)
-            x = repeat(x, count=count - 1, in_channels=out_channels, out_channels=out_channels, kernel_size=kernel_size,
-                       activation=activation, stride=1, reduction_ratio=reduction_ratio,
-                       expansion=expansion, fused=fused, dropout=dropout, drop_connect=drop_connect)
-            return x
-
-        def base(cfg, input, activation=activations.swish,
-                 width_mult=1., depth_mult=1., conv_dropout_rate=None, dropout_rate=None, drop_connect=.2):
-            inp = input
-            # stage 0
-            x = tf.keras.layers.Conv2D(cfg[0][4], kernel_size=(3, 3), strides=2, padding="same", use_bias=False)(inp)
-            x = tf.keras.layers.BatchNormalization(epsilon=1e-5)(x)
-            x = tf.keras.layers.Activation(activation)(x)
-
-            for stage_cfg in cfg:
-                x = stage(x, count=round_repeats(stage_cfg[0], depth_mult),
-                          in_channels=round_filters(stage_cfg[4], width_mult),
-                          out_channels=round_filters(stage_cfg[5], width_mult),
-                          kernel_size=stage_cfg[1], activation=activation, stride=stage_cfg[2],
-                          reduction_ratio=stage_cfg[7], expansion=stage_cfg[3], fused=stage_cfg[6] == 1,
-                          dropout=conv_dropout_rate, drop_connect=drop_connect)
-
-            # final stage
-            x = tf.keras.layers.Conv2D(round_filters(1280, width_mult), (1, 1), strides=1, padding="same",
-                                       use_bias=False)(x)
-            x = tf.keras.layers.BatchNormalization(epsilon=1e-5)(x)
-            x = tf.keras.layers.Activation(activation)(x)
-
-            x = tf.keras.layers.GlobalAvgPool2D()(x)
-            if (dropout_rate is not None) and (dropout_rate != 0):
-                x = tf.keras.layers.Dropout(dropout_rate)(x)
-
-            return x
-
-        def s(input, activation=activations.swish,
-              width_mult=1., depth_mult=1., conv_dropout_rate=None, dropout_rate=None, drop_connect=.2):
-
-            cfg = [
-                [2, 3, 1, 1, 24, 24, 1, None],
-                [4, 3, 2, 4, 24, 48, 1, None],
-                [4, 3, 2, 4, 48, 64, 1, None],
-                [6, 3, 2, 4, 64, 128, 0, 4],
-                [9, 3, 1, 6, 128, 160, 0, 4],
-                [15, 3, 2, 6, 160, 256, 0, 4],
-            ]
-
-            return base(cfg, input, activation, width_mult, depth_mult, conv_dropout_rate, dropout_rate, drop_connect)
-
-        def m(input, activation=activations.swish,
-              width_mult=1.0, depth_mult=1., conv_dropout_rate=None, dropout_rate=None, drop_connect=.2):
-
-            cfg = [
-                [3, 3, 1, 1, 24, 24, 1, None],
-                [5, 3, 2, 4, 24, 48, 1, None],
-                [5, 3, 2, 4, 48, 80, 1, None],
-                [7, 3, 2, 4, 80, 160, 0, 4],
-                [14, 3, 1, 6, 160, 176, 0, 4],
-                [18, 3, 2, 6, 176, 304, 0, 4],
-                [5, 3, 1, 6, 304, 512, 0, 4],
-            ]
-
-            return base(cfg, input, activation, width_mult, depth_mult, conv_dropout_rate, dropout_rate, drop_connect)
-
-        def l(input, activation=activations.swish,
-              width_mult=1.0, depth_mult=1., conv_dropout_rate=None, dropout_rate=None, drop_connect=.2):
-
-            cfg = [
-                [4, 3, 1, 1, 32, 32, 1, None],
-                [7, 3, 2, 4, 32, 64, 1, None],
-                [7, 3, 2, 4, 64, 96, 1, None],
-                [10, 3, 2, 4, 96, 192, 0, 4],
-                [19, 3, 1, 6, 192, 224, 0, 4],
-                [25, 3, 2, 6, 224, 384, 0, 4],
-                [7, 3, 1, 6, 384, 640, 0, 4],
-            ]
-
-            return base(cfg, input, activation, width_mult, depth_mult, conv_dropout_rate, dropout_rate, drop_connect)
-
-        def xl(input, activation=activations.swish,
-               width_mult=1.0, depth_mult=1., conv_dropout_rate=None, dropout_rate=None, drop_connect=.2):
-
-            cfg = [
-                [4, 3, 1, 1, 32, 32, 1, None],
-                [8, 3, 2, 4, 32, 64, 1, None],
-                [8, 3, 2, 4, 64, 96, 1, None],
-                [16, 3, 2, 4, 96, 192, 0, 4],
-                [24, 3, 1, 6, 192, 256, 0, 4],
-                [32, 3, 2, 6, 256, 512, 0, 4],
-                [8, 3, 1, 6, 512, 640, 0, 4],
-            ]
-
-            return base(cfg, input, activation, width_mult, depth_mult, conv_dropout_rate, dropout_rate, drop_connect)
-
-        return s(allbands)
-
-
-class GhostEffNetV2(BigEarthModel):
-    def __init__(self, nb_class):
-        super().__init__(nb_class)
-
-    def _create_model_logits(self, allbands):
-        def round_filters(filters, multiplier=1.):
-            divisor = 8
-            min_depth = 8
-            filters *= multiplier
-            min_depth = min_depth or divisor
-            new_filters = max(min_depth, int(filters + divisor / 2) // divisor * divisor)
-            return int(new_filters)
-
-        def round_repeats(repeats, multiplier=1.):
-            return int(math.ceil(multiplier * repeats))
-
-        def squeeze_and_excite(x, in_channels, out_channels, activation, reduction_ratio=4):
-            x = layers.GlobalAvgPool2D()(x)
-            x = layers.Dense(in_channels // reduction_ratio)(x)
-            x = layers.Activation(activation)(x)
-            x = layers.Dense(out_channels)(x)
-            x = layers.Activation(activations.sigmoid)(x)
-            return x
-
-        def ghost_conv(x, out_channels, kernel_size, stride, kernel_regularizer=None):
-            x1 = layers.Conv2D(out_channels // 2, kernel_size=kernel_size, strides=stride, padding="same",
-                               use_bias=False, kernel_regularizer=kernel_regularizer)(x)
-            x2 = layers.BatchNormalization(epsilon=1e-5)(x1)
-            x2 = layers.Activation(activations.swish)(x2)
-            x2 = layers.DepthwiseConv2D(kernel_size=(3, 3), strides=1, padding="same",
-                                        use_bias=False, kernel_regularizer=kernel_regularizer)(x2)
-            return layers.Concatenate()([x1, x2])
-
-        def fused_mbconv(x, in_channels, out_channels, kernel_size, activation, stride=1, reduction_ratio=4,
-                         expansion=6, dropout=None, drop_connect=.1):
-            shortcut = x
-            expanded = round_filters(in_channels * expansion)
-
-            if stride == 2:
-                shortcut = layers.AveragePooling2D()(shortcut)
-            if in_channels != out_channels:
-                shortcut = ghost_conv(shortcut, out_channels, (1, 1), 1)
-
-            if expansion != 1:
-                x = ghost_conv(x, expanded, kernel_size, stride)
-                x = layers.BatchNormalization(epsilon=1e-5)(x)
-                x = layers.Activation(activation)(x)
-
-                if (dropout is not None) and (dropout != 0.):
-                    x = layers.Dropout(dropout)(x)
-
-            if reduction_ratio is not None:
-                se = squeeze_and_excite(x, in_channels, expanded, activation, reduction_ratio)
-                x = layers.Multiply()([x, se])
-
-            x = ghost_conv(x, out_channels, (1, 1) if expansion != 1 else kernel_size, 1)
-            x = layers.BatchNormalization(epsilon=1e-5)(x)
-
-            shortcut = layers.SpatialDropout2D(drop_connect)(shortcut)
-            x = layers.Add()([x, shortcut])
-            return layers.Activation(activation)(x)
-
-        def mbconv(x, in_channels, out_channels, kernel_size, activation, stride=1,
-                   reduction_ratio=4, expansion=6, dropout=None, drop_connect=.2):
-            shortcut = x
-            expanded = round_filters(in_channels * expansion)
-
-            print("1", x.shape)
-
-            if stride == 2:
-                shortcut = layers.AveragePooling2D(padding='same')(shortcut)
-            if in_channels != out_channels:
-                shortcut = ghost_conv(shortcut, out_channels, (1, 1), 1)
-
-            print("2", shortcut.shape)
-            print("22", out_channels)
-
-            if expansion != 1:
-                x = ghost_conv(x, expanded, (1, 1), 1)
-                x = layers.BatchNormalization(epsilon=1e-5)(x)
-                x = layers.Activation(activation)(x)
-
-            x = layers.DepthwiseConv2D(kernel_size=kernel_size, strides=stride, padding="same", use_bias=False)(x)
-            x = layers.BatchNormalization(epsilon=1e-5)(x)
-            x = layers.Activation(activation)(x)
-
-            if (expansion != 1) and (dropout is not None) and (dropout != 0.):
-                x = layers.Dropout(dropout)(x)
-
-            if reduction_ratio is not None:
-                se = squeeze_and_excite(x, in_channels, expanded, activation, reduction_ratio)
-                x = layers.Multiply()([x, se])
-
-            print("3", x.shape)
-
-            x = ghost_conv(x, out_channels, (1, 1), 1)
-            x = layers.BatchNormalization(epsilon=1e-5)(x)
-            shortcut = layers.SpatialDropout2D(drop_connect)(shortcut)
-            print(x.shape, shortcut.shape)
-            x = layers.Add()([x, shortcut])
-            return layers.Activation(activation)(x)
-
-        def repeat(x, count, in_channels, out_channels, kernel_size, activation,
-                   stride=1, reduction_ratio=None, expansion=6, fused=False, dropout=None, drop_connect=.2):
-            for i in range(count):
-                if fused:
-                    x = fused_mbconv(x, in_channels, out_channels, kernel_size,
-                                     activation, stride, reduction_ratio, expansion, dropout, drop_connect)
-                else:
-                    x = mbconv(x, in_channels, out_channels, kernel_size, activation, stride,
-                               reduction_ratio, expansion, dropout, drop_connect)
-            return x
-
-        def stage(x, count, in_channels, out_channels, kernel_size, activation,
-                  stride=1, reduction_ratio=None, expansion=6, fused=False, dropout=None, drop_connect=.2):
-            x = repeat(x, count=1, in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size,
-                       activation=activation, stride=stride, reduction_ratio=reduction_ratio,
-                       expansion=expansion, fused=fused, dropout=dropout, drop_connect=drop_connect)
-            x = repeat(x, count=count - 1, in_channels=out_channels, out_channels=out_channels, kernel_size=kernel_size,
-                       activation=activation, stride=1, reduction_ratio=reduction_ratio,
-                       expansion=expansion, fused=fused, dropout=dropout, drop_connect=drop_connect)
-            return x
-
-        def base(cfg, input, activation=activations.swish,
-                 width_mult=1., depth_mult=1., conv_dropout_rate=None, dropout_rate=None, drop_connect=.2):
-            inp = input
-            # stage 0
-            x = layers.Conv2D(cfg[0][4], kernel_size=(3, 3), strides=2, padding="same", use_bias=False)(inp)
-            x = layers.BatchNormalization(epsilon=1e-5)(x)
-            x = layers.Activation(activation)(x)
-
-            for stage_cfg in cfg:
-                x = stage(x, count=round_repeats(stage_cfg[0], depth_mult),
-                          in_channels=round_filters(stage_cfg[4], width_mult),
-                          out_channels=round_filters(stage_cfg[5], width_mult),
-                          kernel_size=stage_cfg[1], activation=activation, stride=stage_cfg[2],
-                          reduction_ratio=stage_cfg[7], expansion=stage_cfg[3], fused=stage_cfg[6] == 1,
-                          dropout=conv_dropout_rate, drop_connect=drop_connect)
-
-            # final stage
-            x = layers.Conv2D(round_filters(1280, width_mult), (1, 1), strides=1, padding="same", use_bias=False)(x)
-            x = layers.BatchNormalization(epsilon=1e-5)(x)
-            x = layers.Activation(activation)(x)
-
-            x = layers.GlobalAvgPool2D()(x)
-            if (dropout_rate is not None) and (dropout_rate != 0):
-                x = layers.Dropout(dropout_rate)(x)
-            return x
-
-        def s(input, activation=activations.swish,
-              width_mult=1., depth_mult=1., conv_dropout_rate=None, dropout_rate=None, drop_connect=.1):
-
-            cfg = [
-                [2, 3, 1, 1, 24, 24, 1, None],
-                [4, 3, 2, 4, 24, 48, 1, None],
-                [4, 3, 2, 4, 48, 64, 1, None],
-                [6, 3, 2, 4, 64, 128, 0, 4],
-                [9, 3, 1, 6, 128, 160, 0, 4],
-                [15, 3, 2, 6, 160, 256, 0, 4],
-            ]
-
-            return base(cfg, input, activation, width_mult, depth_mult, conv_dropout_rate, dropout_rate, drop_connect)
-
-        def m(input, activation=activations.swish,
-              width_mult=1.0, depth_mult=1., conv_dropout_rate=None, dropout_rate=None, drop_connect=.2):
-
-            cfg = [
-                [3, 3, 1, 1, 24, 24, 1, None],
-                [5, 3, 2, 4, 24, 48, 1, None],
-                [5, 3, 2, 4, 48, 80, 1, None],
-                [7, 3, 2, 4, 80, 160, 0, 4],
-                [14, 3, 1, 6, 160, 176, 0, 4],
-                [18, 3, 2, 6, 176, 304, 0, 4],
-                [5, 3, 1, 6, 304, 512, 0, 4],
-            ]
-
-            return base(cfg, input, activation, width_mult, depth_mult, conv_dropout_rate, dropout_rate, drop_connect)
-
-        def l(input, activation=activations.swish,
-              width_mult=1.0, depth_mult=1., conv_dropout_rate=None, dropout_rate=None, drop_connect=.2):
-
-            cfg = [
-                [4, 3, 1, 1, 32, 32, 1, None],
-                [7, 3, 2, 4, 32, 64, 1, None],
-                [7, 3, 2, 4, 64, 96, 1, None],
-                [10, 3, 2, 4, 96, 192, 0, 4],
-                [19, 3, 1, 6, 192, 224, 0, 4],
-                [25, 3, 2, 6, 224, 384, 0, 4],
-                [7, 3, 1, 6, 384, 640, 0, 4],
-            ]
-
-            return base(cfg, input, activation, width_mult, depth_mult, conv_dropout_rate, dropout_rate, drop_connect)
-
-        def xl(input, activation=activations.swish,
-               width_mult=1.0, depth_mult=1., conv_dropout_rate=None, dropout_rate=None, drop_connect=.2):
-
-            cfg = [
-                [4, 3, 1, 1, 32, 32, 1, None],
-                [8, 3, 2, 4, 32, 64, 1, None],
-                [8, 3, 2, 4, 64, 96, 1, None],
-                [16, 3, 2, 4, 96, 192, 0, 4],
-                [24, 3, 1, 6, 192, 256, 0, 4],
-                [32, 3, 2, 6, 256, 512, 0, 4],
-                [8, 3, 1, 6, 512, 640, 0, 4],
-            ]
-
-            return base(cfg, input, activation, width_mult, depth_mult, conv_dropout_rate, dropout_rate, drop_connect)
-
-        return s(allbands)
 
 
 class WideResNet(BigEarthModel):
@@ -797,6 +487,9 @@ class WideResNet(BigEarthModel):
         self.beta = coefficients['beta'] ** self.phi
         self.gamma = coefficients['gamma'] ** self.phi
         self.dropout_rate = coefficients['dropout']
+        self.attention_addition = True
+        self.attention_module = eca_module # se_module, cbam_module, coord_module, eca_module
+        self.ghost_conv = False
         super().__init__(nb_class, tuple(int(math.ceil(dimension * self.gamma / 10.0)) * 10 for dimension in (60, 60)))
 
     def _create_model_logits(self, allbands):
@@ -815,27 +508,38 @@ class WideResNet(BigEarthModel):
                                        use_bias=False)(input)
 
             x = tf.keras.layers.BatchNormalization(momentum=0.1, epsilon=1e-5, gamma_initializer='uniform')(x)
+            x = tf.keras.layers.Activation('relu')(x)
             return x
 
         def expand_conv(init, base, k, strides=(1, 1)):
-            x = tf.keras.layers.Conv2D(_make_divisible(base * k), (3, 3), padding='same', strides=strides,
-                                       kernel_initializer='he_normal',
-                                       kernel_regularizer=tf.keras.regularizers.l2(5e-4),
-                                       use_bias=False)(init)
+            if self.ghost_conv:
+                x = ghost_module(init, _make_divisible(base * k), (3, 3), strides)
+            else:
+                x = tf.keras.layers.Conv2D(_make_divisible(base * k), (3, 3), padding='same', strides=strides,
+                                        kernel_initializer='he_normal',
+                                        kernel_regularizer=tf.keras.regularizers.l2(5e-4),
+                                        use_bias=False)(init)
 
             x = tf.keras.layers.BatchNormalization(momentum=0.1, epsilon=1e-5, gamma_initializer='uniform')(x)
             x = tf.keras.layers.Activation('relu')(x)
 
-            x = tf.keras.layers.Conv2D(_make_divisible(base * k), (3, 3), padding='same',
-                                       kernel_initializer='he_normal',
-                                       kernel_regularizer=tf.keras.regularizers.l2(5e-4),
-                                       use_bias=False)(x)
+            if self.ghost_conv:
+                x = ghost_module(x, _make_divisible(base * k), (3, 3), 1)
+            else:
+                x = tf.keras.layers.Conv2D(_make_divisible(base * k), (3, 3), padding='same',
+                                        kernel_initializer='he_normal',
+                                        kernel_regularizer=tf.keras.regularizers.l2(5e-4),
+                                        use_bias=False)(x)
+            if self.attention_addition:
+                x = self.attention_module(x)
 
-            skip = tf.keras.layers.Conv2D(_make_divisible(base * k), (1, 1), padding='same', strides=strides,
-                                          kernel_initializer='he_normal',
-                                          kernel_regularizer=tf.keras.regularizers.l2(5e-4),
-                                          use_bias=False)(init)
-
+            if self.ghost_conv:
+                skip = ghost_module(init, _make_divisible(base * k), (1, 1), strides)
+            else:
+                skip = tf.keras.layers.Conv2D(_make_divisible(base * k), (1, 1), padding='same', strides=strides,
+                                            kernel_initializer='he_normal',
+                                            kernel_regularizer=tf.keras.regularizers.l2(5e-4),
+                                            use_bias=False)(init)
             m = Add()([x, skip])
             return m
 
@@ -844,17 +548,25 @@ class WideResNet(BigEarthModel):
 
             x = tf.keras.layers.BatchNormalization(momentum=0.1, epsilon=1e-5, gamma_initializer='uniform')(input)
             x = tf.keras.layers.Activation('relu')(x)
-            x = tf.keras.layers.Conv2D(_make_divisible(16 * k), (3, 3), padding='same', kernel_initializer='he_normal',
-                                       kernel_regularizer=tf.keras.regularizers.l2(5e-4),
-                                       use_bias=False)(x)
+            if self.ghost_conv:
+                x = ghost_module(x, _make_divisible(16 * k), (3, 3), 1)
+            else:
+                x = tf.keras.layers.Conv2D(_make_divisible(16 * k), (3, 3), padding='same', kernel_initializer='he_normal',
+                                        kernel_regularizer=tf.keras.regularizers.l2(5e-4),
+                                        use_bias=False)(x)
 
             if dropout > 0.0: x = tf.keras.layers.Dropout(dropout)(x)
 
             x = tf.keras.layers.BatchNormalization(momentum=0.1, epsilon=1e-5, gamma_initializer='uniform')(x)
             x = tf.keras.layers.Activation('relu')(x)
-            x = tf.keras.layers.Conv2D(_make_divisible(16 * k), (3, 3), padding='same', kernel_initializer='he_normal',
-                                       kernel_regularizer=tf.keras.regularizers.l2(5e-4),
-                                       use_bias=False)(x)
+            if self.ghost_conv:
+                x = ghost_module(x, _make_divisible(16 * k), (3, 3), 1)
+            else:
+                x = tf.keras.layers.Conv2D(_make_divisible(16 * k), (3, 3), padding='same', kernel_initializer='he_normal',
+                                        kernel_regularizer=tf.keras.regularizers.l2(5e-4),
+                                        use_bias=False)(x)
+            if self.attention_addition:
+                x = self.attention_module(x)
 
             m = Add()([init, x])
             return m
@@ -864,17 +576,25 @@ class WideResNet(BigEarthModel):
 
             x = tf.keras.layers.BatchNormalization(momentum=0.1, epsilon=1e-5, gamma_initializer='uniform')(init)
             x = tf.keras.layers.Activation('relu')(x)
-            x = tf.keras.layers.Conv2D(_make_divisible(32 * k), (3, 3), padding='same', kernel_initializer='he_normal',
-                                       kernel_regularizer=tf.keras.regularizers.l2(5e-4),
-                                       use_bias=False)(x)
+            if self.ghost_conv:
+                x = ghost_module(x, _make_divisible(32 * k), (3, 3), 1)
+            else:
+                x = tf.keras.layers.Conv2D(_make_divisible(32 * k), (3, 3), padding='same', kernel_initializer='he_normal',
+                                        kernel_regularizer=tf.keras.regularizers.l2(5e-4),
+                                        use_bias=False)(x)
 
             if dropout > 0.0: x = tf.keras.layers.Dropout(dropout)(x)
 
             x = tf.keras.layers.BatchNormalization(momentum=0.1, epsilon=1e-5, gamma_initializer='uniform')(x)
             x = tf.keras.layers.Activation('relu')(x)
-            x = tf.keras.layers.Conv2D(_make_divisible(32 * k), (3, 3), padding='same', kernel_initializer='he_normal',
-                                       kernel_regularizer=tf.keras.regularizers.l2(5e-4),
-                                       use_bias=False)(x)
+            if self.ghost_conv:
+                x = ghost_module(x, _make_divisible(32 * k), (3, 3), 1)
+            else:
+                x = tf.keras.layers.Conv2D(_make_divisible(32 * k), (3, 3), padding='same', kernel_initializer='he_normal',
+                                        kernel_regularizer=tf.keras.regularizers.l2(5e-4),
+                                        use_bias=False)(x)
+            if self.attention_addition:
+                x = self.attention_module(x)
 
             m = Add()([init, x])
             return m
@@ -884,22 +604,31 @@ class WideResNet(BigEarthModel):
 
             x = tf.keras.layers.BatchNormalization(momentum=0.1, epsilon=1e-5, gamma_initializer='uniform')(input)
             x = tf.keras.layers.Activation('relu')(x)
-            x = tf.keras.layers.Conv2D(_make_divisible(64 * k), (3, 3), padding='same', kernel_initializer='he_normal',
-                                       kernel_regularizer=tf.keras.regularizers.l2(5e-4),
-                                       use_bias=False)(x)
+            if self.ghost_conv:
+                x = ghost_module(x, _make_divisible(64 * k), (3, 3), 1)
+            else:
+                x = tf.keras.layers.Conv2D(_make_divisible(64 * k), (3, 3), padding='same', kernel_initializer='he_normal',
+                                        kernel_regularizer=tf.keras.regularizers.l2(5e-4),
+                                        use_bias=False)(x)
 
             if dropout > 0.0: x = tf.keras.layers.Dropout(dropout)(x)
 
             x = tf.keras.layers.BatchNormalization(momentum=0.1, epsilon=1e-5, gamma_initializer='uniform')(x)
             x = tf.keras.layers.Activation('relu')(x)
-            x = tf.keras.layers.Conv2D(_make_divisible(64 * k), (3, 3), padding='same', kernel_initializer='he_normal',
-                                       kernel_regularizer=tf.keras.regularizers.l2(5e-4),
-                                       use_bias=False)(x)
-
+            if self.ghost_conv:
+                x = ghost_module(x, _make_divisible(64 * k), (3, 3), 1)
+            else:
+                x = tf.keras.layers.Conv2D(_make_divisible(64 * k), (3, 3), padding='same', kernel_initializer='he_normal',
+                                        kernel_regularizer=tf.keras.regularizers.l2(5e-4),
+                                        use_bias=False)(x)
+            if self.attention_addition:
+                x = self.attention_module(x)
+                
             m = Add()([init, x])
             return m
 
         def WResNet(depth=16, k=2, dropout=self.dropout_rate):
+            # assert (depth - 4) % 6 == 0, 'depth should be 6n+4'
             N = int((depth - 4) // 6 * self.alpha)
 
             x = initial_conv(allbands)
@@ -908,7 +637,7 @@ class WideResNet(BigEarthModel):
             x = expand_conv(x, 16, k)
             nb_conv += 2
 
-            for i in range(N - 1):
+            for _ in range(N - 1):
                 x = conv1_block(x, k, dropout)
                 nb_conv += 2
 
@@ -918,7 +647,7 @@ class WideResNet(BigEarthModel):
             x = expand_conv(x, 32, k, strides=(2, 2))
             nb_conv += 2
 
-            for i in range(N - 1):
+            for _ in range(N - 1):
                 x = conv2_block(x, k, dropout)
                 nb_conv += 2
 
@@ -928,7 +657,7 @@ class WideResNet(BigEarthModel):
             x = expand_conv(x, 64, k, strides=(2, 2))
             nb_conv += 2
 
-            for i in range(N - 1):
+            for _ in range(N - 1):
                 x = conv3_block(x, k, dropout)
                 nb_conv += 2
 
@@ -937,10 +666,10 @@ class WideResNet(BigEarthModel):
             x = tf.keras.layers.AveragePooling2D((8, 8))(x)
             x = tf.keras.layers.GlobalAveragePooling2D()(x)
 
-            print('Wide Residual Network-{}-{} created.'.format(nb_conv, k))
+            print('Wide Residual Network-{}-{} created.'.format(nb_conv, int(k)))
             return x
 
-        return WResNet(16 * self.alpha, 2 * self.beta, 0.1)
+        return WResNet(10 * self.alpha, 2 * self.beta, self.dropout_rate)
 
 
 class EfficientNetB0(BigEarthModel):

@@ -3,15 +3,12 @@
 #
 # TODO
 #
-import math
-
-import tensorflow as tf
-import tensorflow_addons as tfa
-import random as rn
 import numpy as np
+from gradcam import GradCAM
+import tensorflow as tf
+import random as rn
 import argparse
 import os
-import sys
 import json
 import time
 from datetime import datetime
@@ -19,12 +16,10 @@ from inputs import create_batched_dataset
 from metrics import CustomMetrics
 from models import MODELS_CLASS
 import models
-from gradcam import make_gradcam_heatmap, save_gradcam
-
 SEED = 42
 
 
-def evaluate_model(model, batched_dataset, nb_class, args):
+def evaluate_model(model, batched_dataset, nb_class, args, gradcam=False):
     """Evaluate model using the eval dataset
     """
     print('Running model on validation dataset')
@@ -48,15 +43,37 @@ def evaluate_model(model, batched_dataset, nb_class, args):
         y = single_batch[args["label_type"] + "_labels_multi_hot"]
         # Compare predicted label to actual label
         y_ = model(x_all, training=False)
-        save_gradcam(x_all, make_gradcam_heatmap(x_all, model))
+
         # Update all custom metrics
         custom_metrics.update_state(y, y_)
+        
         processed_imgs += x_all[0].shape[0]
+
+        if gradcam:
+            gradcam_x_all = []
+            for j in range(len(single_batch)):
+                gradcam_x_all.append([
+                    single_batch["B02"][j:j+1][:][:],
+                    single_batch["B03"][j:j+1][:][:],
+                    single_batch["B04"][j:j+1][:][:],
+                    single_batch["B05"][j:j+1][:][:],
+                    single_batch["B06"][j:j+1][:][:],
+                    single_batch["B07"][j:j+1][:][:],
+                    single_batch["B08"][j:j+1][:][:],
+                    single_batch["B8A"][j:j+1][:][:],
+                    single_batch["B11"][j:j+1][:][:],
+                    single_batch["B12"][j:j+1][:][:],
+                ])
+
+            patch_names = single_batch["patch_name"].values.numpy().tolist()
+
+            for index, x in enumerate(gradcam_x_all):
+                GradCAM(model, x, y[index], patch_names[index])
     
     if args['worker_index'] == 0:
         print('Inference rate: {} images/sec'.format(processed_imgs // (time.time() - start)))
 
-    micro_precision, macro_precision, micro_recall, macro_recall, micro_accuracy, macro_accuracy, f_score = custom_metrics.result()
+    micro_precision, macro_precision, micro_recall, macro_recall, micro_accuracy, macro_accuracy, micro_fscore, macro_fscore = custom_metrics.result()
     if args['parallel']:
         print('Time : ' + str(datetime.now().strftime('%Y-%m-%d %H:%M:%S')) + ' Process %d Reduce ' % hvd.rank(), flush=True)
         hvd.join()
@@ -66,7 +83,8 @@ def evaluate_model(model, batched_dataset, nb_class, args):
         macro_recall = hvd.allreduce(macro_recall)
         micro_accuracy = hvd.allreduce(micro_accuracy)
         macro_accuracy = hvd.allreduce(macro_accuracy)
-        f_score = hvd.allreduce(f_score)
+        micro_fscore = hvd.allreduce(micro_fscore)
+        macro_fscore = hvd.allreduce(macro_fscore)
 
     return (
         micro_precision,
@@ -75,7 +93,8 @@ def evaluate_model(model, batched_dataset, nb_class, args):
         macro_recall,
         micro_accuracy,
         macro_accuracy,
-        f_score
+        micro_fscore,
+        macro_fscore
     )
 
 
@@ -87,7 +106,8 @@ def _write_summary(summary_writer, custom_metrics, epoch):
         epoch_macro_recall,
         epoch_micro_accuracy,
         epoch_macro_accuracy,
-        f_score
+        epoch_micro_fscore,
+        epoch_macro_fscore
     ) = custom_metrics
 
     with summary_writer.as_default():
@@ -97,7 +117,8 @@ def _write_summary(summary_writer, custom_metrics, epoch):
         tf.summary.scalar('macro_recall', epoch_macro_recall, step=epoch)
         tf.summary.scalar('micro_accuracy', epoch_micro_accuracy, step=epoch)
         tf.summary.scalar('macro_accuracy', epoch_macro_accuracy, step=epoch)
-        tf.summary.scalar('f_score', f_score, step=epoch)
+        tf.summary.scalar('micro_fscore', epoch_micro_fscore, step=epoch)
+        tf.summary.scalar('macro_fscore', epoch_macro_fscore, step=epoch)
 
 
 def run_model(args):
@@ -176,9 +197,6 @@ def run_model(args):
         ]
         y = single_batch[args["label_type"] + "_labels_multi_hot"]
         y_ = model(x_all, training=False)
-        # print(x_all)
-        print(y)
-        print(y_)
 
     # Create loss
     loss = tf.keras.losses.BinaryCrossentropy(label_smoothing=tf.cast(args["label_smoothing"], tf.float64))
@@ -237,7 +255,7 @@ def run_model(args):
         check_dir = args['eval_checkpoint']
         checkpoint_test = tf.train.Checkpoint(model=model, optimizer=optimizer)
         checkpoint_test.restore(tf.train.latest_checkpoint(check_dir))
-        test_eval = evaluate_model(model, test_batched_dataset, nb_class, args)
+        test_eval = evaluate_model(model, test_batched_dataset, nb_class, args, True)
         (
             epoch_micro_precision,
             epoch_macro_precision,
@@ -245,19 +263,20 @@ def run_model(args):
             epoch_macro_recall,
             epoch_micro_accuracy,
             epoch_macro_accuracy,
-            f_score
+            epoch_micro_fscore,
+            epoch_macro_fscore
         ) = test_eval
         if args['worker_index'] == 0:
             print('\n\n\n\n Test Scores \n\n\n=============')
 
             print(
-                "Evaluation : micro: accuracy: {:.3f}, precision: {:.3f}, recall: {:.3f}, F-score: {:.3f}".format(
-                     epoch_micro_accuracy, epoch_micro_precision, epoch_micro_recall, f_score
+                "Evaluation : micro: accuracy: {:.3f}, precision: {:.3f}, recall: {:.3f}, f-score: {:.3f}".format(
+                     epoch_micro_accuracy, epoch_micro_precision, epoch_micro_recall, epoch_micro_fscore
                 )
             )
             print(
-                " macro: accuracy: {:.3f}, precision: {:.3f}, recall: {:.3f}".format(
-                     epoch_macro_accuracy, epoch_macro_precision, epoch_macro_recall
+                " macro: accuracy: {:.3f}, precision: {:.3f}, recall: {:.3f}, f-score: {:.3f}".format(
+                     epoch_macro_accuracy, epoch_macro_precision, epoch_macro_recall, epoch_macro_fscore
                 )
             )
         return 0
@@ -335,21 +354,22 @@ def run_model(args):
                 epoch_macro_recall,
                 epoch_micro_accuracy,
                 epoch_macro_accuracy,
-                f_score
+                epoch_micro_fscore,
+                epoch_macro_fscore
             ) = evaluation
-            if args['worker_index'] == 0 and f_score > bestfscore:
-                bestfscore = f_score.numpy()
+            if args['worker_index'] == 0 and epoch_micro_fscore > bestfscore:
+                bestfscore = epoch_micro_fscore.numpy()
                 print("Process {:01d}: New Best F-Score : {:.3f}\n Epoch : {:03d} Writing Checkpoint".format(args['worker_index'], bestfscore, epoch))
                 print("Process {:01d}:  Epoch : {:03d} Writing Checkpoint".format(args['worker_index'], epoch))
                 checkpoint.save(checkpoint_dir)
                 print(
-                    "Epoch {:03d}: micro: accuracy: {:.3f}, precision: {:.3f}, recall: {:.3f}, F-score: {:.3f}".format(
-                        epoch, epoch_micro_accuracy, epoch_micro_precision, epoch_micro_recall, f_score
+                    "Epoch {:03d}: micro: accuracy: {:.3f}, precision: {:.3f}, recall: {:.3f}, f-score: {:.3f}".format(
+                        epoch, epoch_micro_accuracy, epoch_micro_precision, epoch_micro_recall, epoch_micro_fscore
                     )
                 )
                 print(
-                    "Epoch {:03d}: macro: accuracy: {:.3f}, precision: {:.3f}, recall: {:.3f}".format(
-                        epoch, epoch_macro_accuracy, epoch_macro_precision, epoch_macro_recall
+                    "Epoch {:03d}: macro: accuracy: {:.3f}, precision: {:.3f}, recall: {:.3f}, f-score: {:.3f}".format(
+                        epoch, epoch_macro_accuracy, epoch_macro_precision, epoch_macro_recall, epoch_macro_fscore
                     )
                 )
             if args['worker_index'] == 0:
@@ -379,19 +399,20 @@ def run_model(args):
                     epoch_macro_recall,
                     epoch_micro_accuracy,
                     epoch_macro_accuracy,
-                    f_score
+                    epoch_micro_fscore,
+                    epoch_macro_fscore
                 ) = test_eval
                 if args['worker_index'] == 0:
                     print('\n\n\n\n Test Scores \n\n\n=============')
 
                     print(
-                        "Epoch {:03d}: micro: accuracy: {:.3f}, precision: {:.3f}, recall: {:.3f}, F-score: {:.3f}".format(
-                            epoch, epoch_micro_accuracy, epoch_micro_precision, epoch_micro_recall, f_score
+                        "Epoch {:03d}: micro: accuracy: {:.3f}, precision: {:.3f}, recall: {:.3f}, f-score: {:.3f}".format(
+                            epoch, epoch_micro_accuracy, epoch_micro_precision, epoch_micro_recall, epoch_micro_fscore
                         )
                     )
                     print(
-                        "Epoch {:03d}: macro: accuracy: {:.3f}, precision: {:.3f}, recall: {:.3f}".format(
-                            epoch, epoch_macro_accuracy, epoch_macro_precision, epoch_macro_recall
+                        "Epoch {:03d}: macro: accuracy: {:.3f}, precision: {:.3f}, recall: {:.3f}, f-score: {:.3f}".format(
+                            epoch, epoch_macro_accuracy, epoch_macro_precision, epoch_macro_recall, epoch_macro_fscore
                         )
                     )
 
