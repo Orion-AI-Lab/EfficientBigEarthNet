@@ -1,0 +1,4 @@
+scipy==1.0.0
+tensorflow-gpu==1.10.0
+pylint==1.8.2
+numpy==1.14.1

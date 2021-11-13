@@ -1,0 +1,12 @@
+{
+    "model_name": "VGG16",
+    "batch_size":1000,
+    "nb_epoch":3,
+    "learning_rate":1e-3,
+    "save_checkpoint_per_iteration": 270,
+    "save_checkpoint_after_iteration": 0,
+    "out_dir": "/work2/pa20/ipapout/gitSpace/TF1.10.1gpu_Py3/MyWork/VGG16",
+    "test_tf_record_files": "/work2/pa20/ipapout/gitSpace/TF1.10.1gpu_Py3/MyWork/test.tfrecord", 
+    "model_file": "/work2/pa20/ipapout/gitSpace/TF1.10.1gpu_Py3/MyWork/VGG16/models/iteration-810",
+    "label_type": "BigEarthNet-19"
+}

@@ -1,0 +1,1 @@
+This folder contains configuration examples for the models included in the repository. The settings in `base.json` are always applied and then updated with the settings of the specified config file.
