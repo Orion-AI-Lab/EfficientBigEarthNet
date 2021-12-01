@@ -3,6 +3,8 @@
 
 Code and models from the paper [Efficient deep learning models for land cover image classification](https://arxiv.org/abs/2111.09451) .
 
+All models will be uploaded [here](). (TO BE UPDATED.)
+
 If you use the models or code provided in this repo, please consider citing our paper:
 ```
 @misc{papoutsis2021efficient,
