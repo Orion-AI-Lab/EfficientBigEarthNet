@@ -7,22 +7,25 @@ All models will be uploaded [here](). (TO BE UPDATED.)
 
 ## Available pretrained models:
 - ### Standard architectures
-  - [DenseNet121]()
-  - [DenseNet169]()
-  - [DenseNet201]()
-  - [ResNet50]()
-  - [ResNet101]()
-  - [ResNet152]()
-  - [VGG16]()
-  - [VGG19]()
-  - [ViT/6](vit)
-  - [ViT/12]()
-  - [ViT/20]()
-  - [ViT/30]()
-  - [ViT/40]()
-  - [ViTM/20]()
-  - [MLPMixer]()
-  - [MLPMixer_Tiny]()
+  - #### CNNs  
+    - [DenseNet121]()
+    - [DenseNet169]()
+    - [DenseNet201]()
+    - [ResNet50]()
+    - [ResNet101]()
+    - [ResNet152]()
+    - [VGG16]()
+    - [VGG19]()
+  - #### Vision Transformers
+    - [ViT/6](vit)
+    - [ViT/12]()
+    - [ViT/20]()
+    - [ViT/30]()
+    - [ViT/40]()
+    - [ViTM/20]()
+  - #### MLP Mixer
+    - [MLPMixer]()
+    - [MLPMixer_Tiny]()
 
 -  ### Wide-ResNet based Architectures
     - [WideResNet]()
