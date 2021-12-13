@@ -81,6 +81,39 @@ All models will be uploaded [here](). (TO BE UPDATED.)
 
 ```  tensorflow==2.4.1 ```, ``` horovod==0.21.0  ```
 
+## Usage:
+  To run an experiment modify the [config file](configs/base.json). Example for MLPMixer with batch size = 100 and learning rate 1e-4:
+  ```
+
+{
+    "model_name": "MLPMixer",
+    "hparams": {"phi": 1.0, "alpha": 1.0, "beta": 1.0, "gamma": 1.0, "dropout": 0.1},
+    "batch_size": 100,
+    "nb_epoch": 30,
+    "learning_rate": 1e-4,
+    "save_checkpoint_after_iteration": 0,
+    "save_checkpoint_per_iteration": 1,
+    "tr_tf_record_files": ["/work2/pa20/ipapout/gitSpace/TF1.10.1gpu_Py3/NikosTmp/v2/bigearthnet-noa-hua/bigearthnet-tf2/fulldataset/split-10nodes-fulldataset/train*.tfrecord"],
+    "val_tf_record_files": ["/work2/pa20/ipapout/gitSpace/TF1.10.1gpu_Py3/NikosTmp/v2/bigearthnet-noa-hua/bigearthnet-tf2/fulldataset/split-10nodes-fulldataset/val*.tfrecord"],
+    "test_tf_record_files": ["/work2/pa20/ipapout/gitSpace/TF1.10.1gpu_Py3/NikosTmp/v2/bigearthnet-noa-hua/bigearthnet-tf2/fulldataset/split-10nodes-fulldataset/test*.tfrecord"],
+    "label_type": "BigEarthNet-19",
+    "fine_tune": false,
+    "shuffle_buffer_size": 5000,
+    "training_size": 269695,
+    "val_size": 125866,
+    "test_size": 125866,
+    "decay_rate": 0.1,
+    "backward_passes": 4,
+    "decay_step": 27,
+    "label_smoothing": 0,
+    "mode": "train",
+    "eval_checkpoint": "/work2/pa20/ipapout/gitSpace/TF1.10.1gpu_Py3/NikosTmp/v2/charmbigearth/bigearthnet-tf2/bestTestResNet50/checkpoint_ResNet50",
+    "augment": true
+}
+
+```
+
+
 ## Citation 
 
 If you use the models or code provided in this repo, please consider citing our paper:
