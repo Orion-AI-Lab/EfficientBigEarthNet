@@ -82,7 +82,7 @@ All models will be uploaded [here](). (TO BE UPDATED.)
 ```  tensorflow==2.4.1 ```, ``` horovod==0.21.0  ```
 
 ## Usage:
-  To run an experiment modify the [config file](configs/base.json). Example for MLPMixer with batch size = 100 and learning rate 1e-4:
+  To run an experiment modify the [config file](configs/base.json) and execute train.py. Example for MLPMixer with batch size = 100 and learning rate 1e-4:
   ```
 
 {
