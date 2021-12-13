@@ -3,13 +3,13 @@
 
 Code and models from the paper [Efficient deep learning models for land cover image classification](https://arxiv.org/abs/2111.09451) .
 
-All models will be uploaded [here](). (TO BE UPDATED.)
+All models will be uploaded [here](). (In progress.)
 
 ## Available pretrained models:
 - ### Standard architectures
   - #### CNNs  
     - [DenseNet121]()
-    - [DenseNet169]()
+    - [DenseNet169](https://www.dropbox.com/s/qh6cnryod7uric7/checkpoint_DenseNet169.zip?dl=0)
     - [DenseNet201]()
     - [ResNet50]()
     - [ResNet101]()
