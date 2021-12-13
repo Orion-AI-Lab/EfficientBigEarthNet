@@ -29,9 +29,11 @@ All models will be uploaded [here](). (TO BE UPDATED.)
     - [WideResNet-COORD]()
     - [WideResNet-CBAM]()
     - [WideResNet-CBAM-Ghost]()
+    - [WideResNet-COORD]()
     - [WideResNet-COORD-Ghost]()
     - [WideResNet-SE]() 
     - [WideResNet-SE-Ghost]()
+    - [WideResNet-ECA-GHOST]()
 
 
 - ### EfficientNet Family
@@ -45,6 +47,15 @@ All models will be uploaded [here](). (TO BE UPDATED.)
     - [EfficientNetB6]()
     - [EfficientNetB7]()
   
+  - ### Augmented EfficientNet
+    - [EfficientNet-CBAM]()
+    - [EfficientNet-CBAM-GHOST]()
+    - [EfficientNet-COORD]()
+    - [EfficientNet-COORD-GHOST]()
+    - [EfficientNet-SE]()
+    - [EfficientNet-SE-GHOST]()
+    - [EfficientNet-ECA-GHOST]()
+    
   - #### ECA EfficientNet Architectures
     -  [EfficientNetB0-ECA]()
     -  [EfficientNetB1-ECA]() 
