@@ -28,7 +28,7 @@ All models will be uploaded [here](). (TO BE UPDATED.)
     - [WideResNet]()
     - [WideResNet-COORD]()
     - [WideResNet-CBAM]()
-    - [WideResNet-CBAM-Ghost]
+    - [WideResNet-CBAM-Ghost]()
     - [WideResNet-COORD-Ghost]()
     - [WideResNet-SE]() 
     - [WideResNet-SE-Ghost]()
