@@ -24,8 +24,46 @@ All models will be uploaded [here](). (TO BE UPDATED.)
   - [MLPMixer]()
   - [MLPMixer_Tiny]()
 
+-  ### Wide-ResNet based Architectures
+    - [WideResNet]()
+    - [WideResNet-COORD]()
+    - [WideResNet-CBAM]()
+    - [WideResNet-CBAM-Ghost]
+    - [WideResNet-COORD-Ghost]()
+    - [WideResNet-SE]() 
+    - [WideResNet-SE-Ghost]()
+
+
 - ### EfficientNet Family
-  - [EfficientNetB0]()
+  - #### Traditional EfficientNet Architecture
+    - [EfficientNetB0]()
+    - [EfficientNetB1]()
+    - [EfficientNetB2]()
+    - [EfficientNetB3]()
+    - [EfficientNetB4]()
+    - [EfficientNetB5]()
+    - [EfficientNetB6]()
+    - [EfficientNetB7]()
+  
+  - #### ECA EfficientNet Architectures
+    -  [EfficientNetB0-ECA]()
+    -  [EfficientNetB1-ECA]() 
+    -  [EfficientNetB2-ECA]()
+    -  [EfficientNetB3-ECA]()
+    -  [EfficientNetB4-ECA]()
+    -  [EfficientNetB5-ECA]()
+    -  [EfficientNetB6-ECA]()
+    -  [EfficientNetB7-ECA]()
+  
+  -  #### Wide-ResNet-ECA based EfficientNet Architectures:
+     - [WideResNet-ECA-B0]() 
+     - [WideResNet-ECA-B1]()
+     - [WideResNet-ECA-B2]()
+     - [WideResNet-ECA-B3]()
+     - [WideResNet-ECA-B4]()
+     - [WideResNet-ECA-B5]()
+     - [WideResNet-ECA-B6]()
+     - [WideResNet-ECA-B7]()
 
 
 ## Requirements :
