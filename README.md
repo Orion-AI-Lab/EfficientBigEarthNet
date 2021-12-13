@@ -113,6 +113,13 @@ All models will be uploaded [here](). (TO BE UPDATED.)
 
 ```
 
+```
+python3 train.py --parallel=False
+```
+or for multi node training : 
+```
+horovodrun --gloo -np $SLURM_NTASKS -H $WORKERS --network-interface ib0 --start-timeout 120 --gloo-timeout-seconds 120 python3 train.py --parallel=True
+```
 
 ## Citation 
 
