@@ -1,31 +1,31 @@
 
-# EfficientBigEarthNet
+# Efficient DL models for land cover image classification.
 
 Code and models from the paper [Efficient deep learning models for land cover image classification](https://arxiv.org/abs/2111.09451) .
 
-All models will be uploaded [here](). (In progress.)
+(Constantly updated. ***EDIT: Standard Architectures are UP***)
 
 ## Available pretrained models:
 - ### Standard architectures
   - #### CNNs  
-    - [DenseNet121]()
+    - [DenseNet121](https://www.dropbox.com/s/idenhh7g4j3vapb/checkpoint_densenet121.zip?dl=0)
     - [DenseNet169](https://www.dropbox.com/s/qh6cnryod7uric7/checkpoint_DenseNet169.zip?dl=0)
-    - [DenseNet201]()
-    - [ResNet50]()
-    - [ResNet101]()
-    - [ResNet152]()
-    - [VGG16]()
-    - [VGG19]()
+    - [DenseNet201](https://www.dropbox.com/s/w0jdbzdamxfyti7/checkpoint_densenet201.zip?dl=0)
+    - [ResNet50](https://www.dropbox.com/s/trsojsbjvlpt9jz/checkpoint_resnet50.zip?dl=0)
+    - [ResNet101](https://www.dropbox.com/s/sn2s5xtqlq9721j/checkpoint_resnet101.zip?dl=0)
+    - [ResNet152](https://www.dropbox.com/s/ukfsg9s8jxjdb64/checkpoint_resnet152.zip?dl=0)
+    - [VGG16](https://www.dropbox.com/s/mxx7jm6pleb9ezu/checkpoint_vgg16.zip?dl=0)
+    - [VGG19](https://www.dropbox.com/s/u86oos6i6vp0981/checkpoint_vgg19.zip?dl=0)
   - #### Vision Transformers
-    - [ViT/6](vit)
-    - [ViT/12]()
-    - [ViT/20]()
-    - [ViT/30]()
-    - [ViT/40]()
-    - [ViTM/20]()
+    - [ViT/6](https://www.dropbox.com/s/e7ae92x5vitp12e/checkpoint_vit_6.zip?dl=0)
+    - [ViT/12](https://www.dropbox.com/s/awyw5uz59cu7rh4/checkpoint_vit_12.zip?dl=0)
+    - [ViT/20](https://www.dropbox.com/s/nkmqvulbb9wbgdw/checkpoint_vit_20.zip?dl=0)
+    - [ViT/30](https://www.dropbox.com/s/uaayeo2ep7mif3p/checkpoint_vit_30.zip?dl=0)
+    - [ViT/40](https://www.dropbox.com/s/yyh8dqngk7j52cw/checkpoint_vit_40.zip?dl=0)
+    - [ViTM/20](https://www.dropbox.com/s/4gtoqfjyar27g69/checkpoint_vit_m20.zip?dl=0)
   - #### MLP Mixer
-    - [MLPMixer]()
-    - [MLPMixer_Tiny]()
+    - [MLPMixer](https://www.dropbox.com/s/29lnfpwc0skkirl/checkpoint_MLPMixer.zip?dl=0)
+    - [MLPMixer_Tiny](https://www.dropbox.com/s/lqs69eo512xkkt7/checkpoint_MLPMixer_Tiny.zip?dl=0)
 
 -  ### Wide-ResNet based Architectures
     - [WideResNet]()
