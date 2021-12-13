@@ -67,11 +67,8 @@ All models will be uploaded [here](). (TO BE UPDATED.)
 
 
 ## Requirements :
-      ```
-         tensorflow==2.4.1```
-         ```
-         horovod==0.21.0
-      ```
+
+```  tensorflow==2.4.1 ```, ``` horovod==0.21.0  ```
 
 ## Citation 
 
