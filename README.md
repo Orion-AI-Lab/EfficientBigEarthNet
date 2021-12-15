@@ -3,6 +3,8 @@
 
 Code and models from the paper [Efficient deep learning models for land cover image classification](https://arxiv.org/abs/2111.09451) .
 
+All models can be found [here](https://www.dropbox.com/sh/8bzc1k1e2ejcb7f/AABLwOp_acItoOD7fubevlFKa?dl=0)
+
 (Constantly updated. ***EDIT: Standard Architectures are UP***)
 
 ## Available pretrained models:
