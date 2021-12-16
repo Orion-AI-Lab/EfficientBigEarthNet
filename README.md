@@ -3,7 +3,7 @@
 
 Code and models from the paper [Efficient deep learning models for land cover image classification](https://arxiv.org/abs/2111.09451) .
 
-All models can be found [here](https://www.dropbox.com/sh/8bzc1k1e2ejcb7f/AABLwOp_acItoOD7fubevlFKa?dl=0)
+All pretrained models can be found [here](https://www.dropbox.com/sh/8bzc1k1e2ejcb7f/AABLwOp_acItoOD7fubevlFKa?dl=0).
 
 ## Available pretrained models:
 - ### Standard architectures
@@ -35,6 +35,7 @@ All models can be found [here](https://www.dropbox.com/sh/8bzc1k1e2ejcb7f/AABLwO
     - [WideResNet-COORD-Ghost](https://www.dropbox.com/s/ychczklu54ifigs/checkpoint_WideResNet_CBAM_GHOST.zip?dl=0)
     - [WideResNet-SE](https://www.dropbox.com/s/9c6wykn88ettxfs/checkpoint_WideResNet_SE.zip?dl=0) 
     - [WideResNet-SE-Ghost](https://www.dropbox.com/s/9azmeuhfy1ukb52/checkpoint_WideResNet_SE_GHOST.zip?dl=0)
+    - [WideResNet-ECA](https://www.dropbox.com/s/9hqv5xibnx719z0/checkpoint_WideResNet_ECA.zip?dl=0)
     - [WideResNet-ECA-GHOST](https://www.dropbox.com/s/51kzqsrdfhby26v/checkpoint_WideResNet_ECA_GHOST.zip?dl=0)
 
 
@@ -50,33 +51,32 @@ All models can be found [here](https://www.dropbox.com/sh/8bzc1k1e2ejcb7f/AABLwO
     - [EfficientNetB7](https://www.dropbox.com/s/3x6q4869d2t537f/checkpoint_EfficientNetB7.zip?dl=0)
   
   - ### Augmented EfficientNet
-    - [EfficientNet-CBAM]()
-    - [EfficientNet-CBAM-GHOST]()
-    - [EfficientNet-COORD]()
-    - [EfficientNet-COORD-GHOST]()
-    - [EfficientNet-SE]()
-    - [EfficientNet-SE-GHOST]()
-    - [EfficientNet-ECA-GHOST]()
+    - [EfficientNet-CBAM](https://www.dropbox.com/s/nmd8agsr48fhzox/checkpoint_EfficientNet_CBAM.zip?dl=0)
+    - [EfficientNet-CBAM-GHOST](https://www.dropbox.com/s/aqgn71agf9u44nx/checkpoint_EfficientNet_CBAM_GHOST.zip?dl=0)
+    - [EfficientNet-COORD](https://www.dropbox.com/s/3i1rjwttsxfpqf3/checkpoint_EfficientNet_COORD.zip?dl=0)
+    - [EfficientNet-COORD-GHOST](https://www.dropbox.com/s/5lp6ro9ewfcz0iq/checkpoint_EfficientNet_COORD_GHOST.zip?dl=0)
+    - [EfficientNet-SE](https://www.dropbox.com/s/ubv3ke7qerm2nro/checkpoint_EfficientNet_SE.zip?dl=0)
+    - [EfficientNet-SE-GHOST](https://www.dropbox.com/s/chagaeszrpgeg44/checkpoint_EfficientNet_SE_GHOST.zip?dl=0)
+    - [EfficientNet-ECA](https://www.dropbox.com/s/fnhvuw2uze35tu4/checkpoint_EfficientNet_ECA.zip?dl=0)
+    - [EfficientNet-ECA-GHOST](https://www.dropbox.com/s/3we70krnj06r00a/checkpoint_EfficientNet_ECA_GHOST.zip?dl=0)
     
   - #### ECA EfficientNet Architectures
-    -  [EfficientNetB0-ECA]()
-    -  [EfficientNetB1-ECA]() 
-    -  [EfficientNetB2-ECA]()
-    -  [EfficientNetB3-ECA]()
-    -  [EfficientNetB4-ECA]()
-    -  [EfficientNetB5-ECA]()
-    -  [EfficientNetB6-ECA]()
-    -  [EfficientNetB7-ECA]()
+    -  [EfficientNetB1-ECA](https://www.dropbox.com/s/6p1yqen3at9le2w/checkpoint_EfficientNet_ECA_B1.zip?dl=0) 
+    -  [EfficientNetB2-ECA](https://www.dropbox.com/s/otfz71k9jpg93d7/checkpoint_EfficientNet_ECA_B2.zip?dl=0)
+    -  [EfficientNetB3-ECA](https://www.dropbox.com/s/ncgls9ze7m9v0gn/checkpoint_EfficientNet_ECA_B3.zip?dl=0)
+    -  [EfficientNetB4-ECA](https://www.dropbox.com/s/sn5pzw1eryzsid2/checkpoint_EfficientNet_ECA_B4.zip?dl=0)
+    -  [EfficientNetB5-ECA](https://www.dropbox.com/s/piwgfovu9bwh91t/checkpoint_EfficientNet_ECA_B5.zip?dl=0)
+    -  [EfficientNetB6-ECA](https://www.dropbox.com/s/ryc9hzggwyzmc7k/checkpoint_EfficientNet_ECA_B6.zip?dl=0)
+    -  [EfficientNetB7-ECA](https://www.dropbox.com/s/s1a0c2363eh2j9t/checkpoint_EfficientNet_ECA_B7.zip?dl=0)
   
   -  #### Wide-ResNet-ECA based EfficientNet Architectures:
-     - [WideResNet-ECA-B0]() 
-     - [WideResNet-ECA-B1]()
-     - [WideResNet-ECA-B2]()
-     - [WideResNet-ECA-B3]()
-     - [WideResNet-ECA-B4]()
-     - [WideResNet-ECA-B5]()
-     - [WideResNet-ECA-B6]()
-     - [WideResNet-ECA-B7]()
+     - [WideResNet-ECA-B1](https://www.dropbox.com/s/pmril11fifyy299/checkpoint_WideResNet_ECA_B1.zip?dl=0)
+     - [WideResNet-ECA-B2](https://www.dropbox.com/s/j0n9jzcwoh0u8t6/checkpoint_WideResNet_ECA_B2.zip?dl=0)
+     - [WideResNet-ECA-B3](https://www.dropbox.com/s/w18ay6z05t79o9w/checkpoint_WideResNet_ECA_B3.zip?dl=0)
+     - [WideResNet-ECA-B4](https://www.dropbox.com/s/tx05ebl3een4ye7/checkpoint_WideResNet_ECA_B4.zip?dl=0)
+     - [WideResNet-ECA-B5](https://www.dropbox.com/s/ohnn76kp2byyttc/checkpoint_WideResNet_ECA_B5.zip?dl=0)
+     - [WideResNet-ECA-B6](https://www.dropbox.com/s/gdtudop6dim55c5/checkpoint_WideResNet_ECA_B6.zip?dl=0)
+     - [WideResNet-ECA-B7](https://www.dropbox.com/s/zh7gnkpvicxulto/checkpoint_WideResNet_ECA_B7.zip?dl=0)
 
 
 ## Requirements :
