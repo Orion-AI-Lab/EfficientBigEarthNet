@@ -5,8 +5,6 @@ Code and models from the paper [Efficient deep learning models for land cover im
 
 All models can be found [here](https://www.dropbox.com/sh/8bzc1k1e2ejcb7f/AABLwOp_acItoOD7fubevlFKa?dl=0)
 
-(Constantly updated. ***EDIT: Standard Architectures are UP***)
-
 ## Available pretrained models:
 - ### Standard architectures
   - #### CNNs  
@@ -30,27 +28,26 @@ All models can be found [here](https://www.dropbox.com/sh/8bzc1k1e2ejcb7f/AABLwO
     - [MLPMixer_Tiny](https://www.dropbox.com/s/lqs69eo512xkkt7/checkpoint_MLPMixer_Tiny.zip?dl=0)
 
 -  ### Wide-ResNet based Architectures
-    - [WideResNet]()
-    - [WideResNet-COORD]()
-    - [WideResNet-CBAM]()
-    - [WideResNet-CBAM-Ghost]()
-    - [WideResNet-COORD]()
-    - [WideResNet-COORD-Ghost]()
-    - [WideResNet-SE]() 
-    - [WideResNet-SE-Ghost]()
-    - [WideResNet-ECA-GHOST]()
+    - [WideResNet](https://www.dropbox.com/s/g2dah9t9zpk5eda/checkpoint_WideResNet.zip?dl=0)
+    - [WideResNet-COORD](https://www.dropbox.com/s/qf9n1i0a48uinez/checkpoint_WideResNet_COORD.zip?dl=0)
+    - [WideResNet-CBAM](https://www.dropbox.com/s/ddif8bzfoohx2ap/checkpoint_WideResNet_CBAM.zip?dl=0)
+    - [WideResNet-CBAM-Ghost](https://www.dropbox.com/s/ychczklu54ifigs/checkpoint_WideResNet_CBAM_GHOST.zip?dl=0)
+    - [WideResNet-COORD-Ghost](https://www.dropbox.com/s/ychczklu54ifigs/checkpoint_WideResNet_CBAM_GHOST.zip?dl=0)
+    - [WideResNet-SE](https://www.dropbox.com/s/9c6wykn88ettxfs/checkpoint_WideResNet_SE.zip?dl=0) 
+    - [WideResNet-SE-Ghost](https://www.dropbox.com/s/9azmeuhfy1ukb52/checkpoint_WideResNet_SE_GHOST.zip?dl=0)
+    - [WideResNet-ECA-GHOST](https://www.dropbox.com/s/51kzqsrdfhby26v/checkpoint_WideResNet_ECA_GHOST.zip?dl=0)
 
 
 - ### EfficientNet Family
   - #### Traditional EfficientNet Architecture
-    - [EfficientNetB0]()
-    - [EfficientNetB1]()
-    - [EfficientNetB2]()
-    - [EfficientNetB3]()
-    - [EfficientNetB4]()
-    - [EfficientNetB5]()
-    - [EfficientNetB6]()
-    - [EfficientNetB7]()
+    - [EfficientNetB0](https://www.dropbox.com/s/bex8c96r29c9c47/checkpoint_EfficientNetB0.zip?dl=0)
+    - [EfficientNetB1](https://www.dropbox.com/s/hcvmq8abhl4qs5r/checkpoint_EfficientNetB1.zip?dl=0)
+    - [EfficientNetB2](https://www.dropbox.com/s/hcvmq8abhl4qs5r/checkpoint_EfficientNetB1.zip?dl=0)
+    - [EfficientNetB3](https://www.dropbox.com/s/onmted8umdqv9k9/checkpoint_EfficientNetB3.zip?dl=0)
+    - [EfficientNetB4](https://www.dropbox.com/s/jtvncero96unys0/checkpoint_EfficientNetB4.zip?dl=0)
+    - [EfficientNetB5](https://www.dropbox.com/s/yrj930z9y8ecogc/checkpoint_EfficientNetB5.zip?dl=0)
+    - [EfficientNetB6](https://www.dropbox.com/s/qe3mtzrsv6zb4qx/checkpoint_EfficientNetB6.zip?dl=0)
+    - [EfficientNetB7](https://www.dropbox.com/s/3x6q4869d2t537f/checkpoint_EfficientNetB7.zip?dl=0)
   
   - ### Augmented EfficientNet
     - [EfficientNet-CBAM]()
