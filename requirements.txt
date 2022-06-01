@@ -1,3 +1,5 @@
-tensorflow==2.2
-h5py==2.10.0
-black
+numpy==1.19.5
+tensorflow==2.4.1
+horovod==0.21.0
+matplotlib==3.5.2
+opencv-contrib-python-headless==4.5.5.64

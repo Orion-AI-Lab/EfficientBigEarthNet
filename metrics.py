@@ -1,13 +1,15 @@
+from pprint import pprint
+
 import numpy as np
 import tensorflow as tf
 from tensorflow.python.keras import backend as K
-from pprint import pprint
 
 # TP/FP/TN/FN per class
 # Precision
 # Mean Precision per class
 # Recall
 # F1 Score
+
 
 class CustomMetrics(tf.keras.metrics.Metric):
     def __init__(self, nb_class, name="custom_metrics", **kwargs):
@@ -64,17 +66,19 @@ class CustomMetrics(tf.keras.metrics.Metric):
             tf.float64,
         )
         label_union_prediction = tf.cast(
-            tf.logical_or(tf.not_equal(predictions, self._zero), tf.not_equal(y_true, self._zero)),
+            tf.logical_or(
+                tf.not_equal(predictions, self._zero), tf.not_equal(y_true, self._zero)
+            ),
             tf.float64,
         )
-
-
 
         self._class_tp.assign_add(tf.reduce_sum(true_positive, axis=0))
         self._class_fp.assign_add(tf.reduce_sum(false_positive, axis=0))
         self._class_tn.assign_add(tf.reduce_sum(true_negative, axis=0))
         self._class_fn.assign_add(tf.reduce_sum(false_negative, axis=0))
-        self._class_label_union_pred.assign_add(tf.reduce_sum(label_union_prediction, axis=0))
+        self._class_label_union_pred.assign_add(
+            tf.reduce_sum(label_union_prediction, axis=0)
+        )
 
         flat_confusion_matrix = tf.convert_to_tensor(
             [
@@ -84,8 +88,9 @@ class CustomMetrics(tf.keras.metrics.Metric):
                 self._class_tp,
             ]
         )
-        self._confusion_matrix = tf.reshape(tf.transpose(flat_confusion_matrix), [-1, 2, 2])
-
+        self._confusion_matrix = tf.reshape(
+            tf.transpose(flat_confusion_matrix), [-1, 2, 2]
+        )
 
     def result(self):
         # Precision
@@ -125,8 +130,8 @@ class CustomMetrics(tf.keras.metrics.Metric):
         label_union_pred_class_sum = tf.reduce_sum(self._class_label_union_pred)
         micro_accuracy = tf.where(
             tf.equal(label_union_pred_class_sum, self._zero),
-            x = self._zero,
-            y = tf.divide(tf.reduce_sum(self._class_tp), label_union_pred_class_sum)
+            x=self._zero,
+            y=tf.divide(tf.reduce_sum(self._class_tp), label_union_pred_class_sum),
         )
 
         label_union_pred_class = self._class_label_union_pred
@@ -137,25 +142,78 @@ class CustomMetrics(tf.keras.metrics.Metric):
         )
         macro_accuracy = tf.reduce_mean(macro_accuracy_class)
 
-        #F1-Score
-        micro_fscore = tf.where(
+        # F1-Score
+        micro_f1score = tf.where(
             tf.logical_and(
-                tf.equal(micro_precision, self._zero), tf.equal(micro_recall, self._zero))
-                           , x=self._zero, y= 2*(micro_precision*micro_recall)/(micro_precision + micro_recall))
-        
-        macro_fscore_class = tf.where(
-            tf.logical_and(
-                tf.equal(macro_precision_class, self._zero), tf.equal(macro_recall_class, self._zero))
-                           , x=self._zero, y= 2*(macro_precision_class*macro_recall_class)/(macro_precision_class + macro_recall_class))
-        macro_fscore = tf.reduce_mean(macro_fscore_class)
+                tf.equal(micro_precision, self._zero),
+                tf.equal(micro_recall, self._zero),
+            ),
+            x=self._zero,
+            y=2 * (micro_precision * micro_recall) / (micro_precision + micro_recall),
+        )
 
-        # pprint(dict(zip([
-        #                 "Urban fabric", "Industrial or commercial units", "Arable land", "Permanent crops", "Pastures",
-        #                 "Complex cultivation patterns", "Land principally occupied by agriculture, with significant areas of natural vegetation",
-        #                 "Agro-forestry areas", "Broad-leaved forest", "Coniferous forest", "Mixed forest", "Natural grassland and sparsely vegetated areas",
-        #                 "Moors, heathland and sclerophyllous vegetation", "Transitional woodland, shrub", "Beaches, dunes, sands", "Inland wetlands", 
-        #                 "Coastal wetlands", "Inland waters", "Marine waters"
-        #                 ], np.round(macro_fscore_class.numpy(),4))))
+        macro_f1score_class = tf.where(
+            tf.logical_and(
+                tf.equal(macro_precision_class, self._zero),
+                tf.equal(macro_recall_class, self._zero),
+            ),
+            x=self._zero,
+            y=2
+            * (macro_precision_class * macro_recall_class)
+            / (macro_precision_class + macro_recall_class),
+        )
+        macro_f1score = tf.reduce_mean(macro_f1score_class)
+
+        # F2-Score
+        micro_f2score = tf.where(
+            tf.logical_and(
+                tf.equal(micro_precision, self._zero),
+                tf.equal(micro_recall, self._zero),
+            ),
+            x=self._zero,
+            y=(5 * micro_precision * micro_recall)
+            / (4 * micro_precision + micro_recall),
+        )
+
+        macro_f2score_class = tf.where(
+            tf.logical_and(
+                tf.equal(macro_precision_class, self._zero),
+                tf.equal(macro_recall_class, self._zero),
+            ),
+            x=self._zero,
+            y=(5 * macro_precision_class * macro_recall_class)
+            / (4 * macro_precision_class + macro_recall_class),
+        )
+        macro_f2score = tf.reduce_mean(macro_f2score_class)
+
+        # pprint(
+        #     dict(
+        #         zip(
+        #             [
+        #                 "Urban fabric",
+        #                 "Industrial or commercial units",
+        #                 "Arable land",
+        #                 "Permanent crops",
+        #                 "Pastures",
+        #                 "Complex cultivation patterns",
+        #                 "Land principally occupied by agriculture, with significant areas of natural vegetation",
+        #                 "Agro-forestry areas",
+        #                 "Broad-leaved forest",
+        #                 "Coniferous forest",
+        #                 "Mixed forest",
+        #                 "Natural grassland and sparsely vegetated areas",
+        #                 "Moors, heathland and sclerophyllous vegetation",
+        #                 "Transitional woodland, shrub",
+        #                 "Beaches, dunes, sands",
+        #                 "Inland wetlands",
+        #                 "Coastal wetlands",
+        #                 "Inland waters",
+        #                 "Marine waters",
+        #             ],
+        #             np.round(macro_f2score_class.numpy(), 4),
+        #         )
+        #     )
+        # )
 
         return (
             micro_precision,
@@ -164,8 +222,10 @@ class CustomMetrics(tf.keras.metrics.Metric):
             macro_recall,
             micro_accuracy,
             macro_accuracy,
-            micro_fscore,
-            macro_fscore
+            micro_f1score,
+            macro_f1score,
+            micro_f2score,
+            macro_f2score,
         )
 
     def reset_states(self):

@@ -1,16 +1,6 @@
-# -*- coding: utf-8 -*-
-#
-# BigEarthNet class to create tf.data.Dataset based on the TFRecord files.
-#
-# Author: Gencer Sumbul, http://www.user.tu-berlin.de/gencersumbul/
-# Email: gencer.suembuel@tu-berlin.de
-# Date: 23 Dec 2019
-# Version: 1.0.1
+from glob import glob
 
 import tensorflow as tf
-import numpy as np
-from glob import glob
-import random
 
 BAND_STATS = {
     "mean": {
@@ -24,6 +14,8 @@ BAND_STATS = {
         "B8A": 2266.46036911,
         "B11": 1594.42694882,
         "B12": 1009.32729131,
+        "VV": -12.619993741972035,
+        "VH": -19.29044597721542,
     },
     "std": {
         "B02": 572.41639287,
@@ -36,13 +28,14 @@ BAND_STATS = {
         "B8A": 1356.13789355,
         "B11": 1079.19066363,
         "B12": 818.86747235,
+        "VV": 5.115911777546365,
+        "VH": 5.464428464912864,
     },
 }
 
 
 def _parse_function(example_proto, label_type):
-    """Parse an example from a tfrecord.
-    """
+    """Parse an example from a tfrecord."""
     nb_class = 43 if label_type == "original" else 19
 
     parsed_features = tf.io.parse_single_example(
@@ -58,10 +51,13 @@ def _parse_function(example_proto, label_type):
             "B8A": tf.io.FixedLenFeature([60 * 60], tf.int64),
             "B11": tf.io.FixedLenFeature([60 * 60], tf.int64),
             "B12": tf.io.FixedLenFeature([60 * 60], tf.int64),
+            "VV": tf.io.FixedLenFeature([120 * 120], tf.float32),
+            "VH": tf.io.FixedLenFeature([120 * 120], tf.float32),
+            "patch_name_s1": tf.io.VarLenFeature(dtype=tf.string),
+            "patch_name_s2": tf.io.VarLenFeature(dtype=tf.string),
             label_type + "_labels": tf.io.VarLenFeature(dtype=tf.string),
             label_type
             + "_labels_multi_hot": tf.io.FixedLenFeature([nb_class], tf.int64),
-            "patch_name": tf.io.VarLenFeature(dtype=tf.string),
         },
     )
 
@@ -76,20 +72,18 @@ def _parse_function(example_proto, label_type):
         "B8A": tf.cast(tf.reshape(parsed_features["B8A"], [60, 60]), tf.float32),
         "B11": tf.cast(tf.reshape(parsed_features["B11"], [60, 60]), tf.float32),
         "B12": tf.cast(tf.reshape(parsed_features["B12"], [60, 60]), tf.float32),
+        "VV": tf.reshape(parsed_features["VV"], [120, 120]),
+        "VH": tf.reshape(parsed_features["VV"], [120, 120]),
+        "patch_name_s1": parsed_features["patch_name_s1"],
+        "patch_name_s2": parsed_features["patch_name_s2"],
         label_type + "_labels": parsed_features[label_type + "_labels"],
         label_type
         + "_labels_multi_hot": parsed_features[label_type + "_labels_multi_hot"],
-        "patch_name": parsed_features["patch_name"],
     }
 
 
-def _preprocess_function(example, label_type, augmentation):
-    """Preprocess an example.
-    """
-    if augmentation:
-        augmentation = random.randint(0,10)
-        second_aug = random.randint(0, 10)
-        k_rand = random.randint(0,3)
+def _preprocess_function(example, label_type):
+    """Preprocess an example."""
     newexample = {}
     for band in BAND_STATS["mean"].keys():
         band_tensor = example[band]
@@ -100,30 +94,28 @@ def _preprocess_function(example, label_type, augmentation):
             ),
             tf.constant(BAND_STATS["std"][band], shape=band_tensor.shape),
         )
-        if augmentation:
-            # TODO: add some tranformations here, like flip left-right, small rotation, etc.
-            if augmentation % 2 == 0:
-                 newexample[band] = tf.image.flip_up_down(tf.expand_dims(newexample[band], axis=2))
-                 if second_aug % 2 ==0:
-                     newexample[band] = tf.image.rot90(newexample[band], k=k_rand)
-                 newexample[band] = tf.squeeze(newexample[band],axis=2)
-
     newexample[label_type + "_labels"] = example[label_type + "_labels"]
     newexample[label_type + "_labels_multi_hot"] = example[
         label_type + "_labels_multi_hot"
     ]
-    newexample["patch_name"] = example["patch_name"]
+    newexample["patch_name_s1"] = example["patch_name_s1"]
+    newexample["patch_name_s2"] = example["patch_name_s2"]
 
     return newexample
 
 
-def create_batched_dataset(TFRecord_paths, batch_size, shuffle_buffer_size, label_type, num_workers, worker_index,
-                           num_parallel_calls=tf.data.experimental.AUTOTUNE,augment=False):
-    """Create an input batched dataset.
-    """
+def create_batched_dataset(
+    TFRecord_paths,
+    batch_size,
+    shuffle_buffer_size,
+    label_type,
+    num_workers,
+    worker_index,
+    num_parallel_calls=tf.data.experimental.AUTOTUNE,
+):
+    """Create an input batched dataset."""
     parse_fn = lambda x: _parse_function(x, label_type=label_type)
-    preprocess_fn = lambda x: _preprocess_function(x, label_type=label_type, augmentation=augment)
-
+    preprocess_fn = lambda x: _preprocess_function(x, label_type=label_type)
 
     records = []
     for i in TFRecord_paths:
@@ -131,7 +123,9 @@ def create_batched_dataset(TFRecord_paths, batch_size, shuffle_buffer_size, labe
 
     dataset = tf.data.Dataset.list_files(TFRecord_paths)
     dataset = dataset.shard(num_workers, worker_index)
-    dataset = dataset.interleave(tf.data.TFRecordDataset, num_parallel_calls=num_parallel_calls)
+    dataset = dataset.interleave(
+        tf.data.TFRecordDataset, num_parallel_calls=num_parallel_calls
+    )
     if shuffle_buffer_size > 0:
         dataset = dataset.shuffle(buffer_size=shuffle_buffer_size)
     dataset = dataset.map(parse_fn, num_parallel_calls=num_parallel_calls)
