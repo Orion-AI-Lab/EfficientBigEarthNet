@@ -265,8 +265,8 @@ class BigEarthModel:
 
 
 class DenseNet121BigEarthModel(BigEarthModel):
-    def __init__(self, nb_class):
-        super().__init__(nb_class)
+    def __init__(self, nb_class, modality):
+        super().__init__(nb_class, modality=modality)
 
     def _create_model_logits(self, allbands):
         num_bands = self._num_bands
@@ -281,8 +281,8 @@ class DenseNet121BigEarthModel(BigEarthModel):
 
 
 class DenseNet169BigEarthModel(BigEarthModel):
-    def __init__(self, nb_class):
-        super().__init__(nb_class)
+    def __init__(self, nb_class, modality):
+        super().__init__(nb_class, modality=modality)
 
     def _create_model_logits(self, allbands):
         num_bands = self._num_bands
@@ -297,8 +297,8 @@ class DenseNet169BigEarthModel(BigEarthModel):
 
 
 class DenseNet201BigEarthModel(BigEarthModel):
-    def __init__(self, nb_class):
-        super().__init__(nb_class)
+    def __init__(self, nb_class, modality):
+        super().__init__(nb_class, modality=modality)
 
     def _create_model_logits(self, allbands):
         num_bands = self._num_bands
@@ -313,8 +313,8 @@ class DenseNet201BigEarthModel(BigEarthModel):
 
 
 class ResNet50BigEarthModel(BigEarthModel):
-    def __init__(self, nb_class):
-        super().__init__(nb_class)
+    def __init__(self, nb_class, modality):
+        super().__init__(nb_class, modality=modality)
 
     def _create_model_logits(self, allbands):
         num_bands = self._num_bands
@@ -329,8 +329,8 @@ class ResNet50BigEarthModel(BigEarthModel):
 
 
 class ResNet101BigEarthModel(BigEarthModel):
-    def __init__(self, nb_class):
-        super().__init__(nb_class)
+    def __init__(self, nb_class, modality):
+        super().__init__(nb_class, modality=modality)
 
     def _create_model_logits(self, allbands):
         num_bands = self._num_bands
@@ -345,8 +345,8 @@ class ResNet101BigEarthModel(BigEarthModel):
 
 
 class ResNet152BigEarthModel(BigEarthModel):
-    def __init__(self, nb_class):
-        super().__init__(nb_class)
+    def __init__(self, nb_class, modality):
+        super().__init__(nb_class, modality=modality)
 
     def _create_model_logits(self, allbands):
         num_bands = self._num_bands
@@ -361,8 +361,8 @@ class ResNet152BigEarthModel(BigEarthModel):
 
 
 class VGG16BigEarthModel(BigEarthModel):
-    def __init__(self, nb_class):
-        super().__init__(nb_class)
+    def __init__(self, nb_class, modality):
+        super().__init__(nb_class, modality=modality)
 
     def _create_model_logits(self, allbands):
         num_bands = self._num_bands
@@ -377,8 +377,8 @@ class VGG16BigEarthModel(BigEarthModel):
 
 
 class VGG19BigEarthModel(BigEarthModel):
-    def __init__(self, nb_class):
-        super().__init__(nb_class)
+    def __init__(self, nb_class, modality):
+        super().__init__(nb_class, modality=modality)
 
     def _create_model_logits(self, allbands):
         num_bands = self._num_bands
@@ -394,8 +394,10 @@ class VGG19BigEarthModel(BigEarthModel):
 
 
 class ResNet_50(BigEarthModel):
-    def __init__(self, nb_class, resolution=(120, 120), dtype="float64"):
-        super().__init__(nb_class, resolution=resolution, dtype=dtype)
+    def __init__(self, nb_class, modality, resolution=(120, 120), dtype="float64"):
+        super().__init__(
+            nb_class, modality=modality, resolution=resolution, dtype=dtype
+        )
 
     def _create_model_logits(self, allbands):
         def identity_block(input_tensor, kernel_size, filters, stage, block):
@@ -952,8 +954,8 @@ class WideResNet(BigEarthModel):
 
 
 class EfficientNetB0(BigEarthModel):
-    def __init__(self, nb_class):
-        super().__init__(nb_class)
+    def __init__(self, nb_class, modality):
+        super().__init__(nb_class, modality=modality)
 
     def _create_model_logits(self, allbands):
         num_bands = self._num_bands
@@ -969,8 +971,8 @@ class EfficientNetB0(BigEarthModel):
 
 
 class EfficientNetB1(BigEarthModel):
-    def __init__(self, nb_class):
-        super().__init__(nb_class)
+    def __init__(self, nb_class, modality):
+        super().__init__(nb_class, modality=modality)
 
     def _create_model_logits(self, allbands):
         num_bands = self._num_bands
@@ -986,8 +988,8 @@ class EfficientNetB1(BigEarthModel):
 
 
 class EfficientNetB2(BigEarthModel):
-    def __init__(self, nb_class):
-        super().__init__(nb_class)
+    def __init__(self, nb_class, modality):
+        super().__init__(nb_class, modality=modality)
 
     def _create_model_logits(self, allbands):
         num_bands = self._num_bands
@@ -1003,8 +1005,8 @@ class EfficientNetB2(BigEarthModel):
 
 
 class EfficientNetB3(BigEarthModel):
-    def __init__(self, nb_class):
-        super().__init__(nb_class)
+    def __init__(self, nb_class, modality):
+        super().__init__(nb_class, modality=modality)
 
     def _create_model_logits(self, allbands):
         num_bands = self._num_bands
@@ -1020,8 +1022,8 @@ class EfficientNetB3(BigEarthModel):
 
 
 class EfficientNetB4(BigEarthModel):
-    def __init__(self, nb_class):
-        super().__init__(nb_class)
+    def __init__(self, nb_class, modality):
+        super().__init__(nb_class, modality=modality)
 
     def _create_model_logits(self, allbands):
         num_bands = self._num_bands
@@ -1037,8 +1039,8 @@ class EfficientNetB4(BigEarthModel):
 
 
 class EfficientNetB5(BigEarthModel):
-    def __init__(self, nb_class):
-        super().__init__(nb_class)
+    def __init__(self, nb_class, modality):
+        super().__init__(nb_class, modality=modality)
 
     def _create_model_logits(self, allbands):
         num_bands = self._num_bands
@@ -1054,8 +1056,8 @@ class EfficientNetB5(BigEarthModel):
 
 
 class EfficientNetB6(BigEarthModel):
-    def __init__(self, nb_class):
-        super().__init__(nb_class)
+    def __init__(self, nb_class, modality):
+        super().__init__(nb_class, modality=modality)
 
     def _create_model_logits(self, allbands):
         num_bands = self._num_bands
@@ -1071,8 +1073,8 @@ class EfficientNetB6(BigEarthModel):
 
 
 class EfficientNetB7(BigEarthModel):
-    def __init__(self, nb_class):
-        super().__init__(nb_class)
+    def __init__(self, nb_class, modality):
+        super().__init__(nb_class, modality=modality)
 
     def _create_model_logits(self, allbands):
         num_bands = self._num_bands
@@ -1088,8 +1090,8 @@ class EfficientNetB7(BigEarthModel):
 
 
 class DNN_model(BigEarthModel):
-    def __init__(self, nb_class):
-        super().__init__(nb_class)
+    def __init__(self, nb_class, modality):
+        super().__init__(nb_class, modality=modality)
 
     def fully_connected_block(self, inputs, nb_neurons, name):
         fully_connected_res = tf.keras.layers.Dense(
@@ -1264,8 +1266,8 @@ class PatchEncoder(tf.keras.layers.Layer):
 
 
 class ViT(BigEarthModel):
-    def __init__(self, nb_class):
-        super().__init__(nb_class)
+    def __init__(self, nb_class, modality):
+        super().__init__(nb_class, modality=modality)
 
     def _create_model_logits(self, allbands):
         # num_bands = self._num_bands
@@ -1447,8 +1449,8 @@ class LambdaConv(Layer):
 
 
 class LambdaResNet(BigEarthModel):
-    def __init__(self, nb_class):
-        super().__init__(nb_class)
+    def __init__(self, nb_class, modality):
+        super().__init__(nb_class, modality=modality)
 
     def _create_model_logits(self, allbands):
         def initial_conv(input):
@@ -1750,7 +1752,7 @@ def MlpMixerModel(
         channels_mlp_dim = tokens_mlp_dim
 
     num_patches = (height * width) // (
-        patch_size ** 2
+        patch_size**2
     )  # TODO verify how this behaves with same padding
 
     inputs = tf.keras.Input(input_shape)
@@ -1787,8 +1789,8 @@ def MlpMixerModel(
 
 
 class Mixer(BigEarthModel):
-    def __init__(self, nb_class):
-        super().__init__(nb_class)
+    def __init__(self, nb_class, modality):
+        super().__init__(nb_class, modality=modality)
 
     def _create_model_logits(self, allbands):
         num_bands = self._num_bands
@@ -1804,8 +1806,8 @@ class Mixer(BigEarthModel):
 
 
 class Mixer_Tiny(BigEarthModel):
-    def __init__(self, nb_class):
-        super().__init__(nb_class)
+    def __init__(self, nb_class, modality):
+        super().__init__(nb_class, modality=modality)
 
     def _create_model_logits(self, allbands):
         num_bands = self._num_bands
