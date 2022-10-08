@@ -1,3 +1,5 @@
+[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/efficient-deep-learning-models-for-land-cover/multi-label-image-classification-on)](https://paperswithcode.com/sota/multi-label-image-classification-on?p=efficient-deep-learning-models-for-land-cover)
+
 
 # Efficient DL models for land cover image classification.
 
