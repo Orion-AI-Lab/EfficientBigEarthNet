@@ -1,9 +1,9 @@
 [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/efficient-deep-learning-models-for-land-cover/multi-label-image-classification-on)](https://paperswithcode.com/sota/multi-label-image-classification-on?p=efficient-deep-learning-models-for-land-cover)
 
 
-# Efficient DL models for land cover image classification.
+# Benchmarking and scaling of deep learning models for land cover image classification.
 
-Code and models from the paper [Efficient deep learning models for land cover image classification](https://arxiv.org/abs/2111.09451) .
+Code and models from the paper [Benchmarking and scaling of deep learning models for land cover image classification](https://arxiv.org/abs/2111.09451) .
 
 All pretrained models can be found [here](https://www.dropbox.com/sh/8bzc1k1e2ejcb7f/AABLwOp_acItoOD7fubevlFKa?dl=0).
 
