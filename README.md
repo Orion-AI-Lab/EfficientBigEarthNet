@@ -3,11 +3,30 @@
 
 # Benchmarking and scaling of deep learning models for land cover image classification.
 
-Code and models from the paper [Benchmarking and scaling of deep learning models for land cover image classification](https://arxiv.org/abs/2111.09451) .
+Code and models from the paper [Benchmarking and scaling of deep learning models for land cover image classification]https://www.sciencedirect.com/science/article/pii/S0924271622003057).
 
-All pretrained models can be found [here](https://www.dropbox.com/sh/8bzc1k1e2ejcb7f/AABLwOp_acItoOD7fubevlFKa?dl=0).
+## Citation 
 
-## Available pretrained models:
+If you use the models or code provided in this repo, please cite our paper:
+```
+@article{PAPOUTSIS2023250,
+title = {Benchmarking and scaling of deep learning models for land cover image classification},
+journal = {ISPRS Journal of Photogrammetry and Remote Sensing},
+volume = {195},
+pages = {250-268},
+year = {2023},
+issn = {0924-2716},
+doi = {https://doi.org/10.1016/j.isprsjprs.2022.11.012},
+url = {https://www.sciencedirect.com/science/article/pii/S0924271622003057},
+author = {Ioannis Papoutsis and Nikolaos Ioannis Bountos and Angelos Zavras and Dimitrios Michail and Christos Tryfonopoulos},
+keywords = {Benchmark, Land use land cover image classification, BigEarthNet, Wide Residual Networks, EfficientNet, Deep learning, Model zoo, Transfer learning},
+abstract = {The availability of the sheer volume of Copernicus Sentinel-2 imagery has created new opportunities for exploiting deep learning methods for land use land cover (LULC) image classification at large scales. However, an extensive set of benchmark experiments is currently lacking, i.e. deep learning models tested on the same dataset, with a common and consistent set of metrics, and in the same hardware. In this work, we use the BigEarthNet Sentinel-2 multispectral dataset to benchmark for the first time different state-of-the-art deep learning models for the multi-label, multi-class LULC image classification problem, contributing with an exhaustive zoo of 62 trained models. Our benchmark includes standard Convolution Neural Network architectures, as well as non-convolutional methods, such as Multi-Layer Perceptrons and Vision Transformers. We put to the test EfficientNets and Wide Residual Networks (WRN) architectures, and leverage classification accuracy, training time and inference rate. Furthermore, we propose to use the EfficientNet framework for the compound scaling of a lightweight WRN, by varying network depth, width, and input data resolution. Enhanced with an Efficient Channel Attention mechanism, our scaled lightweight model emerged as the new state-of-the-art. It achieves 4.5% higher averaged F-Score classification accuracy for all 19 LULC classes compared to a standard ResNet50 baseline model, with an order of magnitude less trainable parameters. We provide access to all trained models, along with our code for distributed training on multiple GPU nodes. This model zoo of pre-trained encoders can be used for transfer learning and rapid prototyping in different remote sensing tasks that use Sentinel-2 data, instead of exploiting backbone models trained with data from a different domain, e.g., from ImageNet. We validate their suitability for transfer learning in different datasets of diverse volumes. Our top-performing WRN achieves state-of-the-art performance (71.1% F-Score) on the SEN12MS dataset while being exposed to only a small fraction of the training dataset.}
+}
+```
+
+
+
+## Available pretrained models (All pretrained models can be found [here](https://www.dropbox.com/sh/8bzc1k1e2ejcb7f/AABLwOp_acItoOD7fubevlFKa?dl=0)): 
 - ### Standard architectures
   - #### CNNs  
     - [DenseNet121](https://www.dropbox.com/s/idenhh7g4j3vapb/checkpoint_densenet121.zip?dl=0)
@@ -127,16 +146,4 @@ or for multi node training :
 horovodrun --gloo -np $SLURM_NTASKS -H $WORKERS --network-interface ib0 --start-timeout 120 --gloo-timeout-seconds 120 python3 train.py --parallel=True
 ```
 
-## Citation 
 
-If you use the models or code provided in this repo, please consider citing our paper:
-```
-@misc{papoutsis2021efficient,
-      title={Efficient deep learning models for land cover image classification}, 
-      author={Ioannis Papoutsis and Nikolaos-Ioannis Bountos and Angelos Zavras and Dimitrios Michail and Christos Tryfonopoulos},
-      year={2021},
-      eprint={2111.09451},
-      archivePrefix={arXiv},
-      primaryClass={cs.CV}
-}
-```
