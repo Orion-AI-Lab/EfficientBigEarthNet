@@ -3,7 +3,7 @@
 
 # Benchmarking and scaling of deep learning models for land cover image classification.
 
-Code and models from the paper [Benchmarking and scaling of deep learning models for land cover image classification]https://www.sciencedirect.com/science/article/pii/S0924271622003057).
+Code and models from the paper [Benchmarking and scaling of deep learning models for land cover image classification](https://www.sciencedirect.com/science/article/pii/S0924271622003057).
 
 ## Citation 
 
