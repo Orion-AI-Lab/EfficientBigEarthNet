@@ -1,7 +1,7 @@
-# Benchmarking and scaling of deep learning models for land cover image classification.
+# Benchmarking and Scaling of Deep Learning Models for Land Cover Image Classification
 Code and models from the paper [Benchmarking and scaling of deep learning models for land cover image classification](https://www.sciencedirect.com/science/article/pii/S0924271622003057).
 
-## Citation 
+## Citation
 If you use the models or code provided in this repo, please cite our paper:
 ```
 @article{PAPOUTSIS2023250,
@@ -19,11 +19,10 @@ abstract = {The availability of the sheer volume of Copernicus Sentinel-2 imager
 }
 ```
 
-## Available pretrained models
+## Available Pretrained Models
 All pretrained models can be found [here](https://www.dropbox.com/sh/8bzc1k1e2ejcb7f/AABLwOp_acItoOD7fubevlFKa?dl=0).
 
 ### Standard Architectures
-
 | Architecture | Model Name | Link | F-Score |
 | :--- | :--- | :--- | :--- |
 | **CNNs** | DenseNet121 | [Download](https://www.dropbox.com/s/idenhh7g4j3vapb/checkpoint_densenet121.zip?dl=0) | 76.8% |
@@ -44,7 +43,6 @@ All pretrained models can be found [here](https://www.dropbox.com/sh/8bzc1k1e2ej
 | | MLPMixer_Tiny | [Download](https://www.dropbox.com/s/lqs69eo512xkkt7/checkpoint_MLPMixer_Tiny.zip?dl=0) | 71.6% |
 
 ### Wide-ResNet Based Architectures
-
 | Model Name | Link |
 | :--- | :--- |
 | WideResNet | [Download](https://www.dropbox.com/s/g2dah9t9zpk5eda/checkpoint_WideResNet.zip?dl=0) |
@@ -58,7 +56,6 @@ All pretrained models can be found [here](https://www.dropbox.com/sh/8bzc1k1e2ej
 | WideResNet-ECA-GHOST | [Download](https://www.dropbox.com/s/51kzqsrdfhby26v/checkpoint_WideResNet_ECA_GHOST.zip?dl=0) |
 
 ### EfficientNet Family
-
 | Architecture | Model Name | Link |
 | :--- | :--- | :--- |
 | **Traditional EfficientNet** | EfficientNetB0 | [Download](https://www.dropbox.com/s/bex8c96r29c9c47/checkpoint_EfficientNetB0.zip?dl=0) |
@@ -95,10 +92,10 @@ All pretrained models can be found [here](https://www.dropbox.com/sh/8bzc1k1e2ej
 ## Dataset
 The dataset used is the BigEarthNet 19 class nomenclature instead of the original 43 class nomenclature.
 
-## Requirements :
-```  tensorflow==2.4.1 ```, ``` horovod==0.21.0  ```
+## Requirements
+`pip install -r .\requirements.txt`  
 
-## Usage:
+## Usage
   To run an experiment modify the [config file](configs/base.json) and execute train.py. Example for MLPMixer with batch size = 100 and learning rate 1e-4:
   ```
 {
